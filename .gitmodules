@@ -4,3 +4,6 @@
 [submodule "lib/dss-conduits"]
 	path = lib/dss-conduits
 	url = https://github.com/makerdao/dss-conduits
+[submodule "lib/aave-v3-core"]
+	path = lib/aave-v3-core
+	url = https://github.com/aave/aave-v3-core
