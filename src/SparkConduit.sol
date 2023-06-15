@@ -2,11 +2,23 @@
 pragma solidity 0.8.19;
 
 import { IConduit } from 'dss-conduits/IConduit.sol';
+import { IPool } from 'aave-v3-core/interfaces/IPool.sol';
 
 contract SparkConduit is IConduit {
 
+    IPool public immutable pool;
+
+    constructor(IPool _pool) {
+        pool = _pool;
+    }
+
     /// @inheritdoc IConduit
     function deposit(address asset, uint256 amount) external {
+        pool.supply(asset, amount, address(this), 0);
+    }
+
+    /// @inheritdoc IConduit
+    function withdraw(uint256 withdrawalId) external returns (uint256 resultingWithdrawalId) {
 
     }
 
@@ -16,17 +28,12 @@ contract SparkConduit is IConduit {
     }
 
     /// @inheritdoc IConduit
-    function initiateWithdraw(uint256 amount) external returns (uint256 withdrawalId) {
+    function requestFunds(uint256 amount) external returns (uint256 withdrawalId) {
 
     }
 
     /// @inheritdoc IConduit
     function cancelWithdraw(uint256 withdrawalId) external {
-
-    }
-
-    /// @inheritdoc IConduit
-    function withdraw(uint256 withdrawalId) external returns (uint256 resultingWithdrawalId) {
 
     }
 
