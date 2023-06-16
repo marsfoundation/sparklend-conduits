@@ -10,6 +10,9 @@ interface ISparkConduit is IConduit {
     struct RequestFundsHints {
         uint256 urgencyMultiplier;
     }
+
+    event SetSubsidySpread(uint256 subsidySpread);
+    event SetAssetEnabled(address indexed asset, bool enabled);
     
     function pool() external view returns (IPool);
 
@@ -18,5 +21,11 @@ interface ISparkConduit is IConduit {
     function subsidySpread() external view returns (uint256);
 
     function setSubsidySpread(uint256 _subsidySpread) external;
+
+    function setAssetEnabled(address asset, bool enabled) external;
+
+    function getAssetConfiguration(address asset) external view returns (bool enabled, uint256 totalCurrentDebt, uint256 totalTargetDebt);
+
+    function getDomainPosition(bytes32 domain, address asset) external view returns (uint256 currentDebt, uint256 targetDebt);
 
 }

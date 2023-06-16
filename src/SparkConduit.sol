@@ -36,6 +36,10 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
 
     mapping (address => AssetConfiguration) private assets;
 
+    event RequestFunds(bytes32 indexed allocator, address indexed asset, uint256 amount, bytes data, uint256 fundRequestId);
+
+    event CancelRequest(bytes32 indexed allocator, address indexed asset, uint256 amount, bytes data, uint256 fundRequestId);
+
     constructor(
         IPool _pool,
         address _pot
@@ -69,6 +73,8 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
         assets[asset].positions[domain] = position;
         assets[asset].totalCurrentDebt = position.currentDebt - prevCurrentDebt;
         assets[asset].totalTargetDebt = position.targetDebt - prevTargetDebt;
+
+        emit Deposit(domain, asset, amount);
     }
 
     function withdraw(bytes32 domain, address asset, address destination, uint256 amount) external override canDomain(domain) {
@@ -89,6 +95,8 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
         assets[asset].totalTargetDebt = prevTargetDebt - position.targetDebt;
 
         pool.withdraw(asset, amount, destination);
+
+        emit Withdraw(domain, asset, destination, amount);
     }
 
     function maxDeposit(bytes32, address) external view returns (uint256 maxDeposit_) {
@@ -122,6 +130,8 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
         assets[asset].targetDebt -= amount;
 
         fundRequestId = 0;
+
+        emit RequestFunds(domain, asset, amount, data);
     }
 
     function cancelFundRequest(bytes32 domain, address asset, uint256 fundRequestId) external override {
@@ -132,6 +142,8 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
         uint256 delta = position.targetDebt - position.currentDebt;
         position.targetDebt = position.currentDebt;
         assets[asset].targetDebt += delta;
+
+        emit cancelFundRequest(domain, asset, fundRequestId);
     }
 
     function isCancelable(bytes32 domain, address asset, uint256 fundRequestId) external override view returns (bool isCancelable_) {
@@ -163,6 +175,31 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
 
     function setSubsidySpread(uint256 _subsidySpread) external auth {
         subsidySpread = _subsidySpread;
+
+        emit SetSubsidySpread(subsidySpread);
+    }
+
+    function setAssetEnabled(address asset, bool enabled) external auth {
+        assets[asset].enabled = enabled;
+
+        emit SetAssetEnabled(asset, enabled);
+    }
+
+    function getAssetConfiguration(address asset) external view returns (bool enabled, uint256 totalCurrentDebt, uint256 totalTargetDebt) {
+        AssetConfiguration memory config = assets[asset];
+        return (
+            config.enabled,
+            config.totalCurrentDebt,
+            config.totalTargetDebt
+        );
+    }
+
+    function getDomainPosition(bytes32 domain, address asset) external view returns (uint256 currentDebt, uint256 targetDebt) {
+        DomainPosition memory position = assets[asset].positions[domain];
+        return (
+            position.currentDebt,
+            position.targetDebt
+        );
     }
 
 }
