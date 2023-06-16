@@ -10,6 +10,6 @@ interface IInterestRateDataSource {
         uint128 targetDebt;
     }
 
-    function getInterestData() external view returns (InterestData memory data);
+    function getInterestData(address asset) external view returns (InterestData memory data);
 
 }

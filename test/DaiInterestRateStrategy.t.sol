@@ -1,226 +1,191 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-pragma solidity 0.8.10;
+pragma solidity ^0.8.0;
 
 import "dss-test/DssTest.sol";
 
 import "../src/DaiInterestRateStrategy.sol";
 
-contract VatMock {
+contract InterestRateDataSourceMock is IInterestRateDataSource {
 
-    uint256 Art;
-    uint256 line;
-    uint256 public live = 1;
+    uint256 baseRate;
+    uint256 subsidyRate;
+    uint256 currentDebt;
+    uint256 targetDebt;
 
-    function ilks(bytes32) public view returns (uint256, uint256, uint256, uint256, uint256) {
-        return (Art, 10 ** 27, 0, line, 0);
+    function setBaseRate(uint256 _baseRate) external {
+        baseRate = _baseRate;
     }
 
-    function setArt(uint256 _art) external {
-        Art = _art;
+    function setSubsidyRate(uint256 _subsidyRate) external {
+        subsidyRate = _subsidyRate;
     }
 
-    function setLine(uint256 _line) external {
-        line = _line;
+    function setCurrentDebt(uint256 _currentDebt) external {
+        currentDebt = _currentDebt;
     }
 
-    function cage() external {
-        live = 0;
+    function setTargetDebt(uint256 _targetDebt) external {
+        targetDebt = _targetDebt;
     }
 
-}
-
-contract PotMock {
-
-    uint256 public dsr;
-
-    function setDSR(uint256 _dsr) external {
-        dsr = _dsr;
+    function getInterestData(address) external view returns (InterestData memory data) {
+        return InterestData({
+            baseRate: uint128(baseRate),
+            subsidyRate: uint128(subsidyRate),
+            currentDebt: uint128(currentDebt),
+            targetDebt: uint128(targetDebt)
+        });
     }
 
 }
 
 contract DaiMock {
-
+    
     uint256 public liquidity;
+
+    function setLiquidity(uint256 _liquidity) external {
+        liquidity += _liquidity;
+    }
 
     function balanceOf(address) external view returns (uint256) {
         return liquidity;
     }
-
-    function setLiquidity(uint256 _liquidity) external {
-        liquidity = _liquidity;
-    }
-
+    
 }
 
 contract DaiInterestRateStrategyTest is DssTest {
 
-    VatMock vat;
-    PotMock pot;
+    InterestRateDataSourceMock dataSource;
     DaiMock dai;
 
     DaiInterestRateStrategy interestStrategy;
-    DaiInterestRateStrategy interestStrategyNoSubsidy;
 
-    bytes32 constant ILK = "DIRECT-SPARK-DAI";
-    uint256 constant DSR_ONE_PERCENT = 1000000000315522921573372069;
-    uint256 constant DSR_TWO_HUNDRED_PERCENT = 1000000034836767751273470154;
-    uint256 constant BR = 11055923171930957297759999;    // DSR at 1% / 90% to get SFBR as yearly APR
     uint256 constant RBPS = RAY / 10000;
     uint256 constant ONE_TRILLION = 1_000_000_000_000;
 
     function setUp() public {
-        vat = new VatMock();
-        vat.setLine(1_000_000 * RAD);
-        pot = new PotMock();
-        pot.setDSR(DSR_ONE_PERCENT);
+        dataSource = new InterestRateDataSourceMock();
+        dataSource.setSubsidyRate(3_50 * RBPS);
         dai = new DaiMock();
 
         interestStrategy = new DaiInterestRateStrategy(
-            address(vat),
-            address(pot),
-            ILK,
-            100 * RAY / 90,  // SFBR is defined as DSR / 90%
-            50 * RBPS,       // 0.5% borrow spread
-            25 * RBPS,       // 0.25% supply spread
-            7500 * RBPS,     // 75% max rate
-            100_000 * WAD    // 100k is reserved for performance bonus
+            address(dai),
+            dataSource,
+            30 * RBPS,
+            75_00 * RBPS
         );
     }
 
     function test_constructor() public {
-        assertEq(address(interestStrategy.vat()), address(vat));
-        assertEq(address(interestStrategy.pot()), address(pot));
-        assertEq(interestStrategy.ilk(), ILK);
-        assertEq(interestStrategy.baseRateConversion(), 1111111111111111111111111111);
-        assertEq(interestStrategy.borrowSpread(), 50 * RBPS);
-        assertEq(interestStrategy.supplySpread(), 25 * RBPS);
-        assertEq(interestStrategy.maxRate(), 7500 * RBPS);
-        assertEq(interestStrategy.performanceBonus(), 100_000 * WAD);
+        assertEq(address(interestStrategy.dataSource()), address(dataSource));
+        assertEq(interestStrategy.spread(), 30 * RBPS);
+        assertEq(interestStrategy.maxRate(), 7_500 * RBPS);
 
         // Recompute should occur
         assertEq(interestStrategy.getDebtRatio(), 0);
-        assertEq(interestStrategy.getBaseRate(), BR);
+        assertEq(interestStrategy.getBaseBorrowRate(), 3_80 * RBPS);
         assertEq(interestStrategy.getLastUpdateTimestamp(), block.timestamp);
     }
 
     function test_recompute() public {
-        vat.setArt(1_000_000 * WAD);
-        vat.setLine(2_000_000 * RAD);
-        pot.setDSR(RAY);
+        dataSource.setCurrentDebt(50 * WAD);
+        dataSource.setTargetDebt(100 * WAD);
+        dataSource.setSubsidyRate(4_00 * RBPS);
         vm.warp(block.timestamp + 1 days);
 
         assertEq(interestStrategy.getDebtRatio(), 0);
-        assertEq(interestStrategy.getBaseRate(), BR);
+        assertEq(interestStrategy.getBaseBorrowRate(), 3_80 * RBPS);
         assertEq(interestStrategy.getLastUpdateTimestamp(), block.timestamp - 1 days);
 
         interestStrategy.recompute();
 
         assertEq(interestStrategy.getDebtRatio(), WAD / 2);
-        assertEq(interestStrategy.getBaseRate(), 0);
+        assertEq(interestStrategy.getBaseBorrowRate(), 4_30 * RBPS);
         assertEq(interestStrategy.getLastUpdateTimestamp(), block.timestamp);
     }
 
-    function test_calculateInterestRates_no_maker_debt_no_borrows() public {
-        assertRates(0, 0, BR + 50 * RBPS, "No Maker debt, no borrows. supply = 0, borrow = dsr + 50bps");
+    function test_calculateInterestRates_zero_usage_zero_limit() public {
+        assertEq(dataSource.getInterestData().currentDebt, 0);
+        assertRates(
+            0,
+            0,
+            3_80 * RBPS,
+            "Should be base borrow at 0 / 0"
+        );
     }
 
-    function test_calculateInterestRates_no_maker_debt_with_borrows() public {
-        dai.setLiquidity(200_000 * WAD);
-
-        assertRates(100_000 * WAD, 0, BR + 50 * RBPS, "No Maker debt, user-only supply under performance bonus. supply = 0, borrow = dsr + 50bps");
-        assertRates(200_000 * WAD, (BR + 25 * RBPS) * 1 / 2 * 1 / 2, BR + 50 * RBPS, "No Maker debt, user-only supply over performance bonus. supply = 0, borrow = dsr + 50bps");
-    }
-
-    function test_calculateInterestRates_maker_debt_no_borrows() public {
-        vat.setArt(200_000 * WAD);
-        dai.setLiquidity(200_000 * WAD);
+    function test_calculateInterestRates_zero_usage_some_limit() public {
+        dataSource.setCurrentDebt(100 * WAD);
+        dataSource.setTargetDebt(100 * WAD);
         interestStrategy.recompute();
-
-        assertRates(0, 0, BR + 50 * RBPS, "Only Maker as LP. supply = 0, borrow = dsr + 50bps");
+        assertRates(
+            0,
+            0,
+            3_80 * RBPS,
+            "Should be base borrow at 0 / 100"
+        );
     }
 
-    function test_calculateInterestRates_maker_debt_with_borrows() public {
-        vat.setArt(200_000 * WAD);
-        dai.setLiquidity(100_000 * WAD);
+    function test_calculateInterestRates_some_usage_some_limit() public {
+        dataSource.setCurrentDebt(100 * WAD);
+        dataSource.setTargetDebt(100 * WAD);
+        dai.setLiquidity(50 * WAD);
         interestStrategy.recompute();
-
-        assertRates(100_000 * WAD, 0, BR + 50 * RBPS, "Only Maker as LP, borrows under performance bonus. supply = 0, borrow = dsr + 50bps");
-        dai.setLiquidity(0);    // Pool is fully utilized
-        assertRates(200_000 * WAD, (BR + 25 * RBPS) * 1 / 2, BR + 50 * RBPS, "Only Maker as LP, borrows over performance bonus. supply = 0, borrow = dsr + 50bps");
+        assertRates(
+            50 * WAD,
+            1_90 * RBPS,
+            3_80 * RBPS,
+            "Should be base borrow at 50 / 100"
+        );
     }
 
-    function test_calculateInterestRates_over_debt_limit() public {
-        vat.setArt(2_000_000 * WAD);    // 2x over capacity
+    function test_calculateInterestRates_over_capacity() public {
+        dataSource.setCurrentDebt(100 * WAD);
+        dataSource.setTargetDebt(50 * WAD);
+        dai.setLiquidity(0);
         interestStrategy.recompute();
-
-        uint256 br = 7500 * RBPS - (7500 * RBPS - (BR + 50 * RBPS)) / 2;
-        assertEq(br, 383027961585965478648880000, "borrow rate should be about half of max rate");
-        assertRates(2_000_000 * WAD, br, br, "Only Maker as LP, 2x over capacity, 100% utilization. supply = ~maxRate/2, borrow = ~maxRate/2");
-        dai.setLiquidity(1_000_000 * WAD);  // User adds some liquidity, still over capacity
-        assertRates(2_000_000 * WAD, 255351974390643652177234692, br, "Maker+Users as LP, 2x over capacity, 66.7% utilization. supply = ~maxRate/2 * 66.7%, borrow = ~maxRate/2");
-    }
-
-    function test_calculateInterestRates_debt_ceiling_zero() public {
-        vat.setLine(0);
-        vat.setArt(1);  // Infinitely over capacity even with 1 wei of debt
-        interestStrategy.recompute();
-
-        uint256 br = 749999997628498784959732204;   // Pretty much maxRate with some rounding errors
-        assertRates(100_000 * WAD, br, br, "Maker wants to go to zero debt - always maxRate. supply = maxRate, borrow = maxRate");
-    }
-
-    function test_calculateInterestRates_vat_caged() public {
-        vat.setArt(500_000 * WAD);
-        vat.cage();
-        interestStrategy.recompute();
-
-        uint256 br = 749999997628498784959732204;   // Pretty much maxRate with some rounding errors
-        assertRates(500_000 * WAD, br, br, "Should be near max rate when vat is caged. supply = maxRate, borrow = maxRate");
+        assertRates(
+            100 * WAD,
+            39_40 * RBPS,
+            39_40 * RBPS,
+            "Should be ~half way between base and max borrow 100 / 50"
+        );
     }
 
     function test_calculateInterestRates_fuzz(
-        uint256 line,
-        uint256 art,
-        uint256 dsr,
-        uint256 baseRateConversion,
+        uint256 baseRate,
+        uint256 subsidyRate,
+        uint256 currentDebt,
+        uint256 targetDebt,
         uint256 totalVariableDebt,
         uint256 liquidity,
-        uint256 borrowSpread,
-        uint256 supplySpread,
-        uint256 maxRate,
-        uint256 performanceBonus
+        uint256 spread,
+        uint256 maxRate
     ) public {
         // Keep the numbers sane
-        line = line % (ONE_TRILLION * RAD);
-        art = art % (ONE_TRILLION * WAD);
-        dsr = dsr % (DSR_TWO_HUNDRED_PERCENT - RAY) + RAY;
-        baseRateConversion = baseRateConversion % (10 * RAY);
-        totalVariableDebt = totalVariableDebt % (ONE_TRILLION * WAD);
-        liquidity = liquidity % (ONE_TRILLION * WAD);
-        maxRate = maxRate % 1_000_000_00 * RBPS;
-        borrowSpread = maxRate > 0 ? borrowSpread % maxRate : 0;
-        supplySpread = borrowSpread > 0 ? supplySpread % borrowSpread : 0;
-        performanceBonus = performanceBonus % (ONE_TRILLION * WAD);
+        baseRate = _bound(baseRate, 0, 200_00 * RBPS);
+        subsidyRate = _bound(subsidyRate, 0, baseRate);
+        currentDebt = _bound(currentDebt, 0, ONE_TRILLION * WAD);
+        targetDebt = _bound(targetDebt, 0, ONE_TRILLION * WAD);
+        totalVariableDebt = _bound(totalVariableDebt, 0, ONE_TRILLION * WAD);
+        liquidity = _bound(liquidity, 0, ONE_TRILLION * WAD);
+        maxRate = _bound(maxRate, 0, 200_00 * RBPS);
+        spread = _bound(spread, 0, maxRate);
 
         interestStrategy = new DaiInterestRateStrategy(
-            address(vat),
-            address(pot),
-            ILK,
-            baseRateConversion,
-            borrowSpread,
-            supplySpread,
-            maxRate,
-            performanceBonus
+            dataSource,
+            spread,
+            maxRate
         );
 
-        vat.setLine(line);
-        vat.setArt(art);
-        pot.setDSR(dsr);
+        dataSource.setBaseRate(baseRate);
+        dataSource.setSubsidyRate(subsidyRate);
+        dataSource.setCurrentDebt(currentDebt);
+        dataSource.setTargetDebt(targetDebt);
         dai.setLiquidity(liquidity);
         interestStrategy.recompute();
 
-        uint256 supplyRatio = totalVariableDebt > 0 ? totalVariableDebt * WAD / (totalVariableDebt + liquidity) : 0;
+        uint256 utilization = totalVariableDebt > 0 ? totalVariableDebt * WAD / (totalVariableDebt + liquidity) : 0;
         (uint256 supplyRate,, uint256 borrowRate) = interestStrategy.calculateInterestRates(DataTypes.CalculateInterestRatesParams(
             0,
             0,
@@ -233,14 +198,10 @@ contract DaiInterestRateStrategyTest is DssTest {
             address(0)
         ));
 
-        assertLe(supplyRatio, WAD, "supply ratio should be less than or equal to 1");
-        if (supplyRatio > 0) {
-            uint256 adjBorrowRate = borrowRate * supplyRatio;
-            assertGe(adjBorrowRate, supplyRate, "adjusted borrow rate should always be greater than or equal to the supply rate");
-        } else {
-            assertGe(borrowRate, supplyRate, "borrow rate should always be greater than or equal to the supply rate");
-        }
-        assertGe(borrowRate, interestStrategy.getBaseRate() + borrowSpread, "borrow rate should be greater than or equal to base rate + spread");
+        assertLe(utilization, WAD, "utilization should be less than or equal to 1");
+        assertEq(borrowRate * utilization / WAD, supplyRate, "borrow rate * utilization should equal supply rate");
+        assertGe(borrowRate, supplyRate, "borrow rate should always be greater than or equal to the supply rate");
+        assertGe(borrowRate, interestStrategy.getBaseBorrowRate(), "borrow rate should be greater than or equal to base rate + spread");
         assertLe(borrowRate, maxRate, "borrow rate should be less than or equal to max rate");
     }
 

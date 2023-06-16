@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.13;
 
 import { IERC20 } from 'aave-v3-core/contracts/dependencies/openzeppelin/contracts/IERC20.sol';
 import { IReserveInterestRateStrategy } from 'aave-v3-core/contracts/interfaces/IReserveInterestRateStrategy.sol';
@@ -53,33 +53,34 @@ contract DaiInterestRateStrategy is IReserveInterestRateStrategy {
         uint40 lastUpdateTimestamp;
     }
 
-    uint256 private constant HWAD = 10 ** 9;
     uint256 private constant WAD = 10 ** 18;
     uint256 private constant RAY = 10 ** 27;
-    uint256 private constant RAD = 10 ** 45;
-    uint256 private constant SECONDS_PER_YEAR = 365 days;
 
+    address public immutable                 asset;
     IInterestRateDataSource public immutable dataSource;
-    uint256 public immutable spread;
-    uint256 public immutable maxRate;
+    uint256 public immutable                 spread;
+    uint256 public immutable                 maxRate;
 
     Slot0 private _slot0;
 
     /**
+     * @param _asset The asset this strategy is for
      * @param _dataSource Interest rate data source
      * @param _spread The spread to apply on top of the subsidy rate for the borrow rate
      * @param _maxRate The maximum rate that can be returned by this strategy in RAY units
      */
     constructor(
+        address _asset,
         IInterestRateDataSource _dataSource,
         uint256 _spread,
         uint256 _maxRate
     ) {
         require(_maxRate >= _spread, "DaiInterestRateStrategy/spread-too-large");
 
+        asset      = _asset;
         dataSource = _dataSource;
-        spread = _spread;
-        maxRate = _maxRate;
+        spread     = _spread;
+        maxRate    = _maxRate;
 
         recompute();
     }
@@ -89,7 +90,7 @@ contract DaiInterestRateStrategy is IReserveInterestRateStrategy {
     * @dev This incurs a lot of SLOADs and infrequently changes. No need to call this on every calculation.
     */
     function recompute() public {
-        IInterestRateDataSource.InterestData memory data = dataSource.getInterestData();
+        IInterestRateDataSource.InterestData memory data = dataSource.getInterestData(asset);
         
         // Base borrow rate cannot be larger than the max rate
         uint256 subsidyRate = data.subsidyRate;
@@ -99,14 +100,23 @@ contract DaiInterestRateStrategy is IReserveInterestRateStrategy {
             }
         }
 
-        uint256 debtRatio = data.targetDebt > 0 ? data.currentDebt * WAD / data.targetDebt : type(uint88).max;
-        if (debtRatio > type(uint88).max) {
-            debtRatio = type(uint88).max;
+        uint256 debtRatio;
+        if (data.currentDebt > 0) {
+            if (data.targetDebt > 0) {
+                debtRatio = data.currentDebt * WAD / data.targetDebt;
+                if (debtRatio > type(uint88).max) {
+                    debtRatio = type(uint88).max;
+                }
+            } else {
+                debtRatio = type(uint88).max;
+            }
+        } else {
+            debtRatio = 0;
         }
 
         _slot0 = Slot0({
-            debtRatio: uint88(debtRatio),
-            baseBorrowRate: uint128(subsidyRate + spread),
+            debtRatio:           uint88(debtRatio),
+            baseBorrowRate:      uint128(subsidyRate + spread),
             lastUpdateTimestamp: uint40(block.timestamp)
         });
     }

@@ -2,16 +2,35 @@
 pragma solidity ^0.8.0;
 
 import { IConduit } from 'dss-conduits/IConduit.sol';
+import { IPool } from 'aave-v3-core/interfaces/IPool.sol';
+import { IERC20 } from 'aave-v3-core/dependencies/openzeppelin/contracts/IERC20.sol';
 
 interface ISparkConduit is IConduit {
 
-    struct InterestData {
-        uint128 baseRate;
-        uint128 subsidyRate;
-        uint128 currentDebt;
-        uint128 targetDebt;
+    struct DomainPosition {
+        uint256 currentDebt;
+        uint256 targetDebt;
     }
 
-    function getInterestData() external view returns (InterestData memory data);
+    struct AssetConfiguration {
+        bool enabled;
+        uint256 totalCurrentDebt;
+        uint256 totalTargetDebt;
+        mapping (bytes32 => DomainPosition) positions;
+    }
+
+    struct RequestFundsHints {
+        uint256 urgencyMultiplier;
+    }
+
+    function assets(address asset) external view returns (AssetConfiguration memory);
+    
+    function pool() external view returns (IPool);
+
+    function pot() external view returns (address);
+
+    function subsidySpread() external view returns (uint256);
+
+    function setSubsidySpread(uint256 _subsidySpread) external;
 
 }
