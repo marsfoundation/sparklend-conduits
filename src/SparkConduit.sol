@@ -41,6 +41,8 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
         pool.supply(asset, amount, address(this), 0);
 
         DomainPosition memory position = assets[asset].positions[domain];
+        uint256 prevCurrentDebt = position.currentDebt;
+        uint256 prevTargetDebt = position.prevTargetDebt;
         if (position.currentDebt > position.targetDebt) {
             // There is pending fund requests that can be cancelled out
             position.targetDebt += amount;
@@ -53,6 +55,8 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
             position.targetDebt = position.currentDebt;
         }
         assets[asset].positions[domain] = position;
+        assets[asset].totalCurrentDebt = position.currentDebt - prevCurrentDebt;
+        assets[asset].totalTargetDebt = position.targetDebt - prevTargetDebt;
     }
 
     function withdraw(bytes32 domain, address asset, address destination, uint256 amount) external override canDomain(domain) {
@@ -69,6 +73,8 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
             position.targetDebt = position.currentDebt;
         }
         assets[asset].positions[domain] = position;
+        assets[asset].totalCurrentDebt = prevCurrentDebt - position.currentDebt;
+        assets[asset].totalTargetDebt = prevTargetDebt - position.targetDebt;
 
         pool.withdraw(asset, amount, destination);
     }
@@ -90,35 +96,44 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
         uint256 liquidityAvailable = IERC20(asset).balanceOf(reserveData.aTokenAddress);
         require(liquidityAvailable == 0, "SparkConduit/must-withdraw-all-available-liquidity-first");
 
-        uint256 targetDebt = assets[asset].positions[domain].targetDebt;
-        targetDebt -= amount;
-        assets[asset].positions[domain].targetDebt = targetDebt;
-
         RequestFundsHints memory hints = RequestFundsHints({
             urgencyMultiplier: WAD
         });
-
         if (data.length > 0) {
-            // There is hints
-            RequestFundsHints memory hints = abi.decode(data, (RequestFundsHints));
+            // There are custom hints
+            hints = abi.decode(data, (RequestFundsHints));
             require(hints.urgencyMultiplier <= WAD, "SparkConduit/invalid-hints");
+            amount = amount * hints.urgencyMultiplier / WAD;
         }
+
+        assets[asset].positions[domain].targetDebt -= amount;
+        assets[asset].targetDebt -= amount;
+
+        fundRequestId = 0;
     }
 
-    function cancelFundRequest(uint256 fundRequestId) external override {
+    function cancelFundRequest(bytes32 domain, address asset, uint256 fundRequestId) external override {
+        require(fundRequestId == 0, "SparkConduit/invalid-fund-request-id");
 
+        Position memory position = assets[asset].positions[domain];
+        require(position.targetDebt < position.currentDebt, "SparkConduit/no-active-fund-requests");
+        uint256 delta = position.targetDebt - position.currentDebt;
+        position.targetDebt = position.currentDebt;
+        assets[asset].targetDebt += delta;
     }
 
-    function isCancelable(uint256 fundRequestId) external override view returns (bool isCancelable_) {
+    function isCancelable(bytes32 domain, address asset, uint256 fundRequestId) external override view returns (bool isCancelable_) {
+        require(fundRequestId == 0, "SparkConduit/invalid-fund-request-id");
 
+        isCancelable_ = assets[asset].positions[domain].targetDebt < assets[asset].positions[domain].currentDebt;
     }
 
-    function activeFundRequests(bytes32 allocator) external override returns (uint256[] memory fundRequestIds, uint256 totalAmount) {
-
+    function activeFundRequests(bytes32 domain, address asset) external override returns (uint256[] memory fundRequestIds, uint256 totalAmount) {
+        // TODO figure out if these are necessary
     }
 
-    function totalActiveFundRequests() external override returns (uint256 totalAmount) {
-
+    function totalActiveFundRequests(address asset) external override returns (uint256 totalAmount) {
+        // TODO figure out if these are necessary
     }
 
     /// @inheritdoc IInterestRateDataSource
