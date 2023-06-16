@@ -105,7 +105,7 @@ contract DaiInterestRateStrategyTest is DssTest {
     }
 
     function test_calculateInterestRates_zero_usage_zero_limit() public {
-        assertEq(dataSource.getInterestData().currentDebt, 0);
+        assertEq(dataSource.getInterestData(address(dai)).currentDebt, 0);
         assertRates(
             0,
             0,
@@ -173,6 +173,7 @@ contract DaiInterestRateStrategyTest is DssTest {
         spread = _bound(spread, 0, maxRate);
 
         interestStrategy = new DaiInterestRateStrategy(
+            address(dai),
             dataSource,
             spread,
             maxRate

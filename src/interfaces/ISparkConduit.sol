@@ -2,28 +2,14 @@
 pragma solidity ^0.8.0;
 
 import { IConduit } from 'dss-conduits/IConduit.sol';
-import { IPool } from 'aave-v3-core/interfaces/IPool.sol';
-import { IERC20 } from 'aave-v3-core/dependencies/openzeppelin/contracts/IERC20.sol';
+import { IPool } from 'aave-v3-core/contracts/interfaces/IPool.sol';
+import { IERC20 } from 'aave-v3-core/contracts/dependencies/openzeppelin/contracts/IERC20.sol';
 
 interface ISparkConduit is IConduit {
-
-    struct DomainPosition {
-        uint256 currentDebt;
-        uint256 targetDebt;
-    }
-
-    struct AssetConfiguration {
-        bool enabled;
-        uint256 totalCurrentDebt;
-        uint256 totalTargetDebt;
-        mapping (bytes32 => DomainPosition) positions;
-    }
 
     struct RequestFundsHints {
         uint256 urgencyMultiplier;
     }
-
-    function assets(address asset) external view returns (AssetConfiguration memory);
     
     function pool() external view returns (IPool);
 

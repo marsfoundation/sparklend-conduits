@@ -14,6 +14,18 @@ interface PotLike {
 
 contract SparkConduit is ISparkConduit, IInterestRateDataSource {
 
+    struct DomainPosition {
+        uint256 currentDebt;
+        uint256 targetDebt;
+    }
+
+    struct AssetConfiguration {
+        bool enabled;
+        uint256 totalCurrentDebt;
+        uint256 totalTargetDebt;
+        mapping (bytes32 => DomainPosition) positions;
+    }
+
     uint256 private constant RAY = 10 ** 27;
     uint256 private constant SECONDS_PER_YEAR = 365 days;
 
@@ -22,7 +34,7 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
 
     uint256 public subsidySpread;
 
-    mapping (address => AssetConfiguration) assets;
+    mapping (address => AssetConfiguration) private assets;
 
     constructor(
         IPool _pool,
