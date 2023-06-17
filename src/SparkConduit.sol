@@ -53,11 +53,6 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
     /// @inheritdoc ISparkConduit
     uint256 public subsidySpread;
 
-    event Rely(address indexed usr);
-    event Deny(address indexed usr);
-    event RequestFunds(bytes32 indexed allocator, address indexed asset, uint256 amount, bytes data, uint256 fundRequestId);
-    event CancelRequest(bytes32 indexed allocator, address indexed asset, uint256 amount, bytes data, uint256 fundRequestId);
-
     modifier auth() {
         require(wards[msg.sender] == 1, "SparkConduit/not-authorized");
         _;
@@ -81,6 +76,9 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
         pool  = _pool;
         pot   = _pot;
         roles = _roles;
+
+        wards[msg.sender] = 1;
+        emit Rely(msg.sender);
     }
 
     /// @inheritdoc IAuth

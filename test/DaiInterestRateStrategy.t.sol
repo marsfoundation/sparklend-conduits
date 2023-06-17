@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "dss-test/DssTest.sol";
 
-import "../src/DaiInterestRateStrategy.sol";
+import { DaiInterestRateStrategy, IInterestRateDataSource, DataTypes } from "../src/DaiInterestRateStrategy.sol";
 
 contract InterestRateDataSourceMock is IInterestRateDataSource {
 
