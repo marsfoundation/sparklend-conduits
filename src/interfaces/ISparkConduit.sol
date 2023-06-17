@@ -13,6 +13,8 @@ interface ISparkConduit is IAllocatorConduit, IAuth {
 
     event CancelFundRequest(bytes32 indexed domain, address indexed asset);
 
+    event CompleteFundRequest(bytes32 indexed domain, address indexed asset, uint256 amount);
+
     event SetSubsidySpread(uint256 subsidySpread);
 
     event SetAssetEnabled(address indexed asset, bool enabled);
@@ -25,9 +27,11 @@ interface ISparkConduit is IAllocatorConduit, IAuth {
 
     function subsidySpread() external view returns (uint256);
 
-    function requestFunds(bytes32 domain, address asset, uint256 amount) external;
+    function requestFunds(bytes32 domain, address asset, address destination, uint256 amount) external;
 
     function cancelFundRequest(bytes32 domain, address asset) external;
+
+    function completeFundRequest(bytes32 domain, address asset) external;
 
     function setSubsidySpread(uint256 _subsidySpread) external;
 

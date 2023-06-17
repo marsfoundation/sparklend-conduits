@@ -15,6 +15,7 @@ interface PotLike {
 
 interface RolesLike {
     function canCall(bytes32, address, address, bytes4) external view returns (bool);
+    function isWhitelistedDestination(bytes32, address) external view returns (bool);
 }
 
 contract SparkConduit is ISparkConduit, IInterestRateDataSource {
@@ -23,6 +24,7 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
     struct DomainPosition {
         uint256 deposits;
         uint256 withdrawals;
+        address withdrawalDestination;
     }
 
     // Please note totalDeposits/totalWithdrawals are in aToken "shares" instead of the underlying asset
@@ -63,6 +65,11 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
 
     modifier domainAuth(bytes32 domain) {
         require(RolesLike(roles).canCall(domain, msg.sender, address(this), msg.sig), "SparkConduit/domain-not-authorized");
+        _;
+    }
+
+    modifier validDestination(bytes32 domain, address destination) {
+        require(RolesLike(roles).isWhitelistedDestination(domain, destination), "SparkConduit/destination-not-authorized");
         _;
     }
 
@@ -116,7 +123,7 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
     }
 
     /// @inheritdoc IAllocatorConduit
-    function withdraw(bytes32 domain, address asset, address destination, uint256 amount) external override domainAuth(domain) {
+    function withdraw(bytes32 domain, address asset, address destination, uint256 amount) external override domainAuth(domain) validDestination(domain, destination) {
         // Normally you should update state first for re-entrancy, but we need an update-to-date liquidity index for that
         pool.withdraw(asset, amount, destination);
 
@@ -125,14 +132,12 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
         amount = amount * RAY / liquidityIndex;
 
         uint256 withdrawals = assets[asset].positions[domain].withdrawals;
+        assets[asset].positions[domain].deposits -= amount;
+        assets[asset].totalDeposits -= amount;
         if (amount <= withdrawals) {
             assets[asset].positions[domain].withdrawals -= amount;
             assets[asset].totalWithdrawals -= amount;
         } else {
-            uint256 depositDelta = amount - withdrawals;
-
-            assets[asset].positions[domain].deposits -= depositDelta;
-            assets[asset].totalDeposits -= depositDelta;
             assets[asset].positions[domain].withdrawals = 0;
             assets[asset].totalWithdrawals -= withdrawals;
         }
@@ -147,26 +152,29 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
 
     /// @inheritdoc IAllocatorConduit
     function maxWithdraw(bytes32 domain, address asset) public override view returns (uint256 maxWithdraw_) {
-        maxWithdraw_ = assets[asset].positions[domain].deposits;
-
         DataTypes.ReserveData memory reserveData = pool.getReserveData(asset);
+        maxWithdraw_ = assets[asset].positions[domain].deposits * reserveData.liquidityIndex / RAY;
         uint256 liquidityAvailable = IERC20(asset).balanceOf(reserveData.aTokenAddress);
         if (maxWithdraw_ > liquidityAvailable) maxWithdraw_ = liquidityAvailable;
     }
 
     /// @inheritdoc ISparkConduit
-    function requestFunds(bytes32 domain, address asset, uint256 amount) external override domainAuth(domain) {
+    function requestFunds(bytes32 domain, address asset, address destination, uint256 amount) external override domainAuth(domain) validDestination(domain, destination) {
         DataTypes.ReserveData memory reserveData = pool.getReserveData(asset);
         uint256 liquidityAvailable = IERC20(asset).balanceOf(reserveData.aTokenAddress);
+        // TODO Confirm that we can get the liquidity to exact zero -- may be sometimes impossible due to rounding
         require(liquidityAvailable == 0, "SparkConduit/must-withdraw-all-available-liquidity-first");
 
         // Convert asset amount to shares
         // Please note the interest conversion may be slightly out of date as there is no index update
-        uint256 liquidityIndex = pool.getReserveData(asset).liquidityIndex;
-        amount = amount * RAY / reserveData.liquidityIndex;
+        amount = amount * RAY / pool.getReserveData(asset).liquidityIndex;
 
-        assets[asset].positions[domain].withdrawals += amount;
-        assets[asset].totalWithdrawals += amount;
+        uint256 deposits = assets[asset].positions[domain].deposits;
+        require(amount <= deposits, "SparkConduit/amount-too-large");
+        uint256 prevWithdrawals = assets[asset].positions[domain].withdrawals;
+        assets[asset].positions[domain].withdrawals = amount;
+        assets[asset].positions[domain].withdrawalDestination = destination;
+        assets[asset].totalWithdrawals = assets[asset].totalWithdrawals + amount - prevWithdrawals;
 
         emit RequestFunds(domain, asset, amount);
     }
@@ -179,6 +187,29 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
         assets[asset].totalWithdrawals -= withdrawals;
 
         emit CancelFundRequest(domain, asset);
+    }
+
+    /// @inheritdoc ISparkConduit
+    function completeFundRequest(bytes32 domain, address asset) external override {
+        DataTypes.ReserveData memory reserveData = pool.getReserveData(asset);
+        uint256 withdrawalShares = assets[asset].positions[domain].withdrawals;
+        uint256 toWithdraw = withdrawalShares * reserveData.liquidityIndex / RAY;   // Approximate what we are owed
+        uint256 liquidityAvailable = IERC20(asset).balanceOf(reserveData.aTokenAddress);
+        if (liquidityAvailable < toWithdraw) toWithdraw = liquidityAvailable;
+        require(toWithdraw > 0, "SparkConduit/nothing-to-withdraw");
+
+        pool.withdraw(asset, toWithdraw, assets[asset].positions[domain].withdrawalDestination);
+
+        // Recompute the share amount based on new liquidity index numbers
+        uint256 amount = toWithdraw * RAY / pool.getReserveData(asset).liquidityIndex;
+
+        // Since interest can only increase, we can safetly assume amount <= withdrawals
+        assets[asset].positions[domain].deposits -= amount;
+        assets[asset].totalDeposits -= amount;
+        assets[asset].positions[domain].withdrawals -= amount;
+        assets[asset].totalWithdrawals -= amount;
+
+        emit CompleteFundRequest(domain, asset, toWithdraw);
     }
 
     /// @inheritdoc IInterestRateDataSource
