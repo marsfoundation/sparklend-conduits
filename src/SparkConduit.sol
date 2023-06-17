@@ -19,11 +19,13 @@ interface RolesLike {
 
 contract SparkConduit is ISparkConduit, IInterestRateDataSource {
 
+    // Please note deposits/withdrawals are in aToken "shares" instead of the underlying asset
     struct DomainPosition {
         uint256 deposits;
         uint256 withdrawals;
     }
 
+    // Please note totalDeposits/totalWithdrawals are in aToken "shares" instead of the underlying asset
     struct AssetData {
         bool enabled;
         uint256 totalDeposits;
@@ -93,6 +95,10 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
         
         pool.supply(asset, amount, address(this), 0);
 
+        // Convert asset amount to shares
+        uint256 liquidityIndex = pool.getReserveData(asset).liquidityIndex;
+        amount = amount * RAY / liquidityIndex;
+
         uint256 withdrawals = assets[asset].positions[domain].withdrawals;
         if (amount <= withdrawals) {
             assets[asset].positions[domain].withdrawals -= amount;
@@ -111,6 +117,13 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
 
     /// @inheritdoc IAllocatorConduit
     function withdraw(bytes32 domain, address asset, address destination, uint256 amount) external override domainAuth(domain) {
+        // Normally you should update state first for re-entrancy, but we need an update-to-date liquidity index for that
+        pool.withdraw(asset, amount, destination);
+
+        // Convert asset amount to shares
+        uint256 liquidityIndex = pool.getReserveData(asset).liquidityIndex;
+        amount = amount * RAY / liquidityIndex;
+
         uint256 withdrawals = assets[asset].positions[domain].withdrawals;
         if (amount <= withdrawals) {
             assets[asset].positions[domain].withdrawals -= amount;
@@ -123,8 +136,6 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
             assets[asset].positions[domain].withdrawals = 0;
             assets[asset].totalWithdrawals -= withdrawals;
         }
-
-        pool.withdraw(asset, amount, destination);
 
         emit Withdraw(domain, asset, destination, amount);
     }
@@ -148,6 +159,11 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
         DataTypes.ReserveData memory reserveData = pool.getReserveData(asset);
         uint256 liquidityAvailable = IERC20(asset).balanceOf(reserveData.aTokenAddress);
         require(liquidityAvailable == 0, "SparkConduit/must-withdraw-all-available-liquidity-first");
+
+        // Convert asset amount to shares
+        // Please note the interest conversion may be slightly out of date as there is no index update
+        uint256 liquidityIndex = pool.getReserveData(asset).liquidityIndex;
+        amount = amount * RAY / reserveData.liquidityIndex;
 
         assets[asset].positions[domain].withdrawals += amount;
         assets[asset].totalWithdrawals += amount;
