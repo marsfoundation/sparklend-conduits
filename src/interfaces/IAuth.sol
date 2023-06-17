@@ -5,8 +5,8 @@ interface IAuth {
 
     function wards(address usr) external view returns (uint256);
 
-    function rely() external;
+    function rely(address usr) external;
 
-    function deny() external;
+    function deny(address usr) external;
 
 }

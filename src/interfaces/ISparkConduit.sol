@@ -1,19 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity >=0.8.0;
 
-import { IConduit } from 'dss-conduits/IConduit.sol';
+import { IAllocatorConduit } from 'dss-allocator/src/interfaces/IAllocatorConduit.sol';
 import { IPool } from 'aave-v3-core/contracts/interfaces/IPool.sol';
 import { IERC20 } from 'aave-v3-core/contracts/dependencies/openzeppelin/contracts/IERC20.sol';
 
 import { IAuth } from './IAuth.sol';
 
-interface ISparkConduit is IConduit, IAuth {
+interface ISparkConduit is IAllocatorConduit, IAuth {
 
-    struct RequestFundsHints {
-        uint256 urgencyMultiplier;
-    }
+    event RequestFunds(bytes32 indexed domain, address indexed asset, uint256 amount);
+
+    event CancelFundRequest(bytes32 indexed domain, address indexed asset);
 
     event SetSubsidySpread(uint256 subsidySpread);
+
     event SetAssetEnabled(address indexed asset, bool enabled);
     
     function pool() external view returns (IPool);
@@ -22,18 +23,18 @@ interface ISparkConduit is IConduit, IAuth {
 
     function roles() external view returns (address);
 
-    function rely() external;
-
-    function deny() external;
-
     function subsidySpread() external view returns (uint256);
+
+    function requestFunds(bytes32 domain, address asset, uint256 amount) external;
+
+    function cancelFundRequest(bytes32 domain, address asset) external;
 
     function setSubsidySpread(uint256 _subsidySpread) external;
 
     function setAssetEnabled(address asset, bool enabled) external;
 
-    function getAssetConfiguration(address asset) external view returns (bool enabled, uint256 totalCurrentDebt, uint256 totalTargetDebt);
+    function getAssetData(address asset) external view returns (bool enabled, uint256 totalDeposits, uint256 totalWithdrawals);
 
-    function getDomainPosition(bytes32 domain, address asset) external view returns (uint256 currentDebt, uint256 targetDebt);
+    function getDomainPosition(bytes32 domain, address asset) external view returns (uint256 deposits, uint256 withdrawals);
 
 }
