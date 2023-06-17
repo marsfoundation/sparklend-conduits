@@ -12,6 +12,10 @@ interface PotLike {
     function dsr() external view returns (uint256);
 }
 
+interface RolesLike {
+    function canCall(bytes32, address, address, bytes4) external view returns (bool);
+}
+
 contract SparkConduit is ISparkConduit, IInterestRateDataSource {
 
     struct DomainPosition {
@@ -29,32 +33,61 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
     uint256 private constant RAY = 10 ** 27;
     uint256 private constant SECONDS_PER_YEAR = 365 days;
 
+    /// @inheritdoc IAuth
+    mapping(address => uint256)            public  wards;
+    mapping(address => AssetConfiguration) private assets;
+
     /// @inheritdoc ISparkConduit
-    IPool public immutable pool;
+    IPool     public immutable pool;
     /// @inheritdoc ISparkConduit
-    PotLike public immutable pot;
+    PotLike   public immutable pot;
+    /// @inheritdoc ISparkConduit
+    RolesLike public immutable roles;
 
     /// @inheritdoc ISparkConduit
     uint256 public subsidySpread;
 
-    mapping (address => AssetConfiguration) private assets;
-
+    event Rely(address indexed usr);
+    event Deny(address indexed usr);
     event RequestFunds(bytes32 indexed allocator, address indexed asset, uint256 amount, bytes data, uint256 fundRequestId);
-
     event CancelRequest(bytes32 indexed allocator, address indexed asset, uint256 amount, bytes data, uint256 fundRequestId);
+
+    modifier auth() {
+        require(wards[msg.sender] == 1, "SparkConduit/not-authorized");
+        _;
+    }
+
+    modifier domainAuth(bytes32 domain) {
+        require(roles.canCall(domain, msg.sender, address(this), msg.sig), "SparkConduit/domain-not-authorized");
+        _;
+    }
 
     constructor(
         IPool _pool,
-        address _pot
+        address _pot,
+        address _roles
     ) {
-        pool = _pool;
-        pot = PotLike(_pot);
+        pool  = _pool;
+        pot   = PotLike(_pot);
+        roles = RolesLike(_roles);
 
         token.approve(address(pool), type(uint256).max);
     }
 
+    /// @inheritdoc IAuth
+    function rely(address usr) external override auth {
+        wards[usr] = 1;
+        emit Rely(usr);
+    }
+
+    /// @inheritdoc IAuth
+    function deny(address usr) external override auth {
+        wards[usr] = 0;
+        emit Deny(usr);
+    }
+
     /// @inheritdoc IConduit
-    function deposit(bytes32 domain, address asset, uint256 amount) external override canDomain(domain) {
+    function deposit(bytes32 domain, address asset, uint256 amount) external override domainAuth(domain) {
         require(assets[asset].enabled, "SparkConduit/asset-disabled");
         require(IERC20(asset).transferFrom(msg.sender, address(this), amount),  "SparkConduit/transfer-failed");
         
@@ -77,7 +110,7 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
     }
 
     /// @inheritdoc IConduit
-    function withdraw(bytes32 domain, address asset, address destination, uint256 amount) external override canDomain(domain) {
+    function withdraw(bytes32 domain, address asset, address destination, uint256 amount) external override domainAuth(domain) {
         uint256 withdrawals = assets[asset].positions[domain].withdrawals;
         if (amount <= withdrawals) {
             assets[asset].positions[domain].withdrawals -= amount;
@@ -97,12 +130,12 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
     }
 
     /// @inheritdoc IConduit
-    function maxDeposit(bytes32, address) external view returns (uint256 maxDeposit_) {
+    function maxDeposit(bytes32, address) external override view returns (uint256 maxDeposit_) {
         maxDeposit_ = type(uint256).max;   // Purposefully ignoring any potental supply cap limits
     }
 
     /// @inheritdoc IConduit
-    function maxWithdraw(bytes32 allocator, address asset) public view returns (uint256 maxWithdraw_) {
+    function maxWithdraw(bytes32 allocator, address asset) public override view returns (uint256 maxWithdraw_) {
         maxWithdraw_ = assets[asset].positions[domain].currentDebt;
 
         DataTypes.ReserveData memory reserveData = pool.getReserveData(asset);
@@ -111,7 +144,7 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
     }
 
     /// @inheritdoc IConduit
-    function requestFunds(bytes32 domain, address asset, uint256 amount, bytes memory data) external override canDomain(domain) returns (uint256 fundRequestId) {
+    function requestFunds(bytes32 domain, address asset, uint256 amount, bytes memory data) external override domainAuth(domain) returns (uint256 fundRequestId) {
         DataTypes.ReserveData memory reserveData = pool.getReserveData(asset);
         uint256 liquidityAvailable = IERC20(asset).balanceOf(reserveData.aTokenAddress);
         require(liquidityAvailable == 0, "SparkConduit/must-withdraw-all-available-liquidity-first");
@@ -133,7 +166,7 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
     }
 
     /// @inheritdoc IConduit
-    function cancelFundRequest(bytes32 domain, address asset, uint256 fundRequestId) external override {
+    function cancelFundRequest(bytes32 domain, address asset, uint256 fundRequestId) external override domainAuth(domain) {
         require(fundRequestId == 0, "SparkConduit/invalid-fund-request-id");
 
         uint256 withdrawals = assets[asset].positions[domain].withdrawals;

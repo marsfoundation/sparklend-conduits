@@ -5,7 +5,9 @@ import { IConduit } from 'dss-conduits/IConduit.sol';
 import { IPool } from 'aave-v3-core/contracts/interfaces/IPool.sol';
 import { IERC20 } from 'aave-v3-core/contracts/dependencies/openzeppelin/contracts/IERC20.sol';
 
-interface ISparkConduit is IConduit {
+import { IAuth } from './IAuth.sol';
+
+interface ISparkConduit is IConduit, IAuth {
 
     struct RequestFundsHints {
         uint256 urgencyMultiplier;
@@ -17,6 +19,12 @@ interface ISparkConduit is IConduit {
     function pool() external view returns (IPool);
 
     function pot() external view returns (address);
+
+    function roles() external view returns (address);
+
+    function rely() external;
+
+    function deny() external;
 
     function subsidySpread() external view returns (uint256);
 
