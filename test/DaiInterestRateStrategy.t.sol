@@ -55,13 +55,13 @@ contract DaiMock {
 
 contract DaiInterestRateStrategyTest is DssTest {
 
+    uint256 constant RBPS = RAY / 10000;
+    uint256 constant ONE_TRILLION = 1_000_000_000_000;
+
     InterestRateDataSourceMock dataSource;
     DaiMock dai;
 
     DaiInterestRateStrategy interestStrategy;
-
-    uint256 constant RBPS = RAY / 10000;
-    uint256 constant ONE_TRILLION = 1_000_000_000_000;
 
     function setUp() public {
         dataSource = new InterestRateDataSourceMock();

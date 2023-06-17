@@ -5,6 +5,19 @@ import "dss-test/DssTest.sol";
 
 import { SparkConduit, ISparkConduit, IAuth, IPool } from "../src/SparkConduit.sol";
 
+contract TokenMock {
+
+    address public lastApproveAddress;
+    uint256 public lastApproveAmount;
+
+    function approve(address spender, uint256 amount) external returns (bool) {
+        lastApproveAddress = spender;
+        lastApproveAmount = amount;
+        return true;
+    }
+
+}
+
 contract PoolMock {
 
 }
@@ -15,8 +28,8 @@ contract PotMock {
 
 contract RolesMock {
 
-    bool canCallSuccess = true;
-    bool isWhitelistedDestinationSuccess = true;
+    bool public canCallSuccess = true;
+    bool public isWhitelistedDestinationSuccess = true;
 
     function canCall(bytes32, address, address, bytes4) external view returns (bool) {
         return canCallSuccess;
@@ -38,16 +51,23 @@ contract RolesMock {
 
 contract SparkConduitTest is DssTest {
 
+    uint256 constant RBPS = RAY / 10000;
+
     PoolMock  pool;
     PotMock   pot;
     RolesMock roles;
+    TokenMock token;
 
     SparkConduit conduit;
+
+    event SetSubsidySpread(uint256 subsidySpread);
+    event SetAssetEnabled(address indexed asset, bool enabled);
 
     function setUp() public {
         pool  = new PoolMock();
         pot   = new PotMock();
         roles = new RolesMock();
+        token = new TokenMock();
 
         vm.expectEmit();
         emit Rely(address(this));
@@ -96,6 +116,26 @@ contract SparkConduitTest is DssTest {
             SparkConduit.withdraw.selector,
             SparkConduit.requestFunds.selector
         ]);
+    }
+
+    function test_setSubsidySpread() public {
+        assertEq(conduit.subsidySpread(), 0);
+        vm.expectEmit();
+        emit SetSubsidySpread(50 * RBPS);
+        conduit.setSubsidySpread(50 * RBPS);
+        assertEq(conduit.subsidySpread(), 50 * RBPS);
+    }
+
+    function test_setAssetEnabled() public {
+        (bool enabled,,) = conduit.getAssetData(address(token));
+        assertEq(enabled, false);
+        vm.expectEmit();
+        emit SetAssetEnabled(address(token), true);
+        conduit.setAssetEnabled(address(token), true);
+        (enabled,,) = conduit.getAssetData(address(token));
+        assertEq(enabled, true);
+        assertEq(token.lastApproveAddress(), address(pool));
+        assertEq(token.lastApproveAmount(), type(uint256).max);
     }
 
 }
