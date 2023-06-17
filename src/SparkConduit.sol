@@ -15,23 +15,26 @@ interface PotLike {
 contract SparkConduit is ISparkConduit, IInterestRateDataSource {
 
     struct DomainPosition {
-        uint256 currentDebt;
-        uint256 targetDebt;
+        uint256 deposits;
+        uint256 withdrawals;
     }
 
     struct AssetConfiguration {
         bool enabled;
-        uint256 totalCurrentDebt;
-        uint256 totalTargetDebt;
+        uint256 totalDeposits;
+        uint256 totalWithdrawals;
         mapping (bytes32 => DomainPosition) positions;
     }
 
     uint256 private constant RAY = 10 ** 27;
     uint256 private constant SECONDS_PER_YEAR = 365 days;
 
+    /// @inheritdoc ISparkConduit
     IPool public immutable pool;
+    /// @inheritdoc ISparkConduit
     PotLike public immutable pot;
 
+    /// @inheritdoc ISparkConduit
     uint256 public subsidySpread;
 
     mapping (address => AssetConfiguration) private assets;
@@ -50,59 +53,55 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
         token.approve(address(pool), type(uint256).max);
     }
 
+    /// @inheritdoc IConduit
     function deposit(bytes32 domain, address asset, uint256 amount) external override canDomain(domain) {
         require(assets[asset].enabled, "SparkConduit/asset-disabled");
         require(IERC20(asset).transferFrom(msg.sender, address(this), amount),  "SparkConduit/transfer-failed");
         
         pool.supply(asset, amount, address(this), 0);
 
-        DomainPosition memory position = assets[asset].positions[domain];
-        uint256 prevCurrentDebt = position.currentDebt;
-        uint256 prevTargetDebt = position.prevTargetDebt;
-        if (position.currentDebt > position.targetDebt) {
-            // There is pending fund requests that can be cancelled out
-            position.targetDebt += amount;
-            if (position.currentDebt < position.targetDebt) {
-                position.currentDebt = position.targetDebt;
-            }
+        uint256 withdrawals = assets[asset].positions[domain].withdrawals;
+        if (amount <= withdrawals) {
+            assets[asset].positions[domain].withdrawals -= amount;
+            assets[asset].totalWithdrawals -= amount;
         } else {
-            // No pending fund requests
-            position.currentDebt += amount;
-            position.targetDebt = position.currentDebt;
+            uint256 depositDelta = amount - withdrawals;
+
+            assets[asset].positions[domain].deposits += depositDelta;
+            assets[asset].totalDeposits += depositDelta;
+            assets[asset].positions[domain].withdrawals = 0;
+            assets[asset].totalWithdrawals -= withdrawals;
         }
-        assets[asset].positions[domain] = position;
-        assets[asset].totalCurrentDebt = position.currentDebt - prevCurrentDebt;
-        assets[asset].totalTargetDebt = position.targetDebt - prevTargetDebt;
 
         emit Deposit(domain, asset, amount);
     }
 
+    /// @inheritdoc IConduit
     function withdraw(bytes32 domain, address asset, address destination, uint256 amount) external override canDomain(domain) {
-        DomainPosition memory position = assets[asset].positions[domain];
-        if (position.currentDebt > position.targetDebt) {
-            // There is pending fund requests that can be cancelled out
-            position.currentDebt -= amount;
-            if (position.currentDebt < position.targetDebt) {
-                position.targetDebt = position.currentDebt;
-            }
+        uint256 withdrawals = assets[asset].positions[domain].withdrawals;
+        if (amount <= withdrawals) {
+            assets[asset].positions[domain].withdrawals -= amount;
+            assets[asset].totalWithdrawals -= amount;
         } else {
-            // No pending fund requests
-            position.currentDebt += amount;
-            position.targetDebt = position.currentDebt;
+            uint256 depositDelta = amount - withdrawals;
+
+            assets[asset].positions[domain].deposits -= depositDelta;
+            assets[asset].totalDeposits -= depositDelta;
+            assets[asset].positions[domain].withdrawals = 0;
+            assets[asset].totalWithdrawals -= withdrawals;
         }
-        assets[asset].positions[domain] = position;
-        assets[asset].totalCurrentDebt = prevCurrentDebt - position.currentDebt;
-        assets[asset].totalTargetDebt = prevTargetDebt - position.targetDebt;
 
         pool.withdraw(asset, amount, destination);
 
         emit Withdraw(domain, asset, destination, amount);
     }
 
+    /// @inheritdoc IConduit
     function maxDeposit(bytes32, address) external view returns (uint256 maxDeposit_) {
         maxDeposit_ = type(uint256).max;   // Purposefully ignoring any potental supply cap limits
     }
 
+    /// @inheritdoc IConduit
     function maxWithdraw(bytes32 allocator, address asset) public view returns (uint256 maxWithdraw_) {
         maxWithdraw_ = assets[asset].positions[domain].currentDebt;
 
@@ -111,51 +110,53 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
         if (maxWithdraw_ > liquidityAvailable) maxWithdraw_ = liquidityAvailable;
     }
 
+    /// @inheritdoc IConduit
     function requestFunds(bytes32 domain, address asset, uint256 amount, bytes memory data) external override canDomain(domain) returns (uint256 fundRequestId) {
         DataTypes.ReserveData memory reserveData = pool.getReserveData(asset);
         uint256 liquidityAvailable = IERC20(asset).balanceOf(reserveData.aTokenAddress);
         require(liquidityAvailable == 0, "SparkConduit/must-withdraw-all-available-liquidity-first");
 
-        RequestFundsHints memory hints = RequestFundsHints({
-            urgencyMultiplier: WAD
-        });
+        // TODO - maybe this is unnecessary
         if (data.length > 0) {
             // There are custom hints
-            hints = abi.decode(data, (RequestFundsHints));
+            RequestFundsHints memory hints = abi.decode(data, (RequestFundsHints));
             require(hints.urgencyMultiplier <= WAD, "SparkConduit/invalid-hints");
             amount = amount * hints.urgencyMultiplier / WAD;
         }
 
-        assets[asset].positions[domain].targetDebt -= amount;
-        assets[asset].targetDebt -= amount;
+        assets[asset].positions[domain].withdrawals += amount;
+        assets[asset].totalWithdrawals += amount;
 
         fundRequestId = 0;
 
         emit RequestFunds(domain, asset, amount, data);
     }
 
+    /// @inheritdoc IConduit
     function cancelFundRequest(bytes32 domain, address asset, uint256 fundRequestId) external override {
         require(fundRequestId == 0, "SparkConduit/invalid-fund-request-id");
 
-        Position memory position = assets[asset].positions[domain];
-        require(position.targetDebt < position.currentDebt, "SparkConduit/no-active-fund-requests");
-        uint256 delta = position.targetDebt - position.currentDebt;
-        position.targetDebt = position.currentDebt;
-        assets[asset].targetDebt += delta;
+        uint256 withdrawals = assets[asset].positions[domain].withdrawals;
+        require(withdrawals > 0, "SparkConduit/no-active-fund-requests");
+        assets[asset].positions[domain].withdrawals = 0;
+        assets[asset].totalWithdrawals -= withdrawals;
 
         emit cancelFundRequest(domain, asset, fundRequestId);
     }
 
+    /// @inheritdoc IConduit
     function isCancelable(bytes32 domain, address asset, uint256 fundRequestId) external override view returns (bool isCancelable_) {
         require(fundRequestId == 0, "SparkConduit/invalid-fund-request-id");
 
-        isCancelable_ = assets[asset].positions[domain].targetDebt < assets[asset].positions[domain].currentDebt;
+        isCancelable_ = assets[asset].positions[domain].withdrawals > 0;
     }
 
+    /// @inheritdoc IConduit
     function activeFundRequests(bytes32 domain, address asset) external override returns (uint256[] memory fundRequestIds, uint256 totalAmount) {
         // TODO figure out if these are necessary
     }
 
+    /// @inheritdoc IConduit
     function totalActiveFundRequests(address asset) external override returns (uint256 totalAmount) {
         // TODO figure out if these are necessary
     }
@@ -164,27 +165,31 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
     function getInterestData(address asset) external override view returns (InterestData memory data) {
         // Convert the DSR a yearly APR
         uint256 dsr = (PotLike(pot).dsr() - RAY) * SECONDS_PER_YEAR;
+        uint256 deposits = assets[asset].totalDeposits;
 
         return InterestData({
             baseRate: uint128(dsr + subsidySpread),
             subsidyRate: uint128(dsr),
-            currentDebt: uint128(assets[asset].currentDebt),
-            targetDebt: uint128(assets[asset].targetDebt)
+            currentDebt: uint128(deposits),
+            targetDebt: uint128(deposits - assets[asset].totalWithdrawals)
         });
     }
 
+    /// @inheritdoc ISparkConduit
     function setSubsidySpread(uint256 _subsidySpread) external auth {
         subsidySpread = _subsidySpread;
 
         emit SetSubsidySpread(subsidySpread);
     }
 
+    /// @inheritdoc ISparkConduit
     function setAssetEnabled(address asset, bool enabled) external auth {
         assets[asset].enabled = enabled;
 
         emit SetAssetEnabled(asset, enabled);
     }
 
+    /// @inheritdoc ISparkConduit
     function getAssetConfiguration(address asset) external view returns (bool enabled, uint256 totalCurrentDebt, uint256 totalTargetDebt) {
         AssetConfiguration memory config = assets[asset];
         return (
@@ -194,6 +199,7 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
         );
     }
 
+    /// @inheritdoc ISparkConduit
     function getDomainPosition(bytes32 domain, address asset) external view returns (uint256 currentDebt, uint256 targetDebt) {
         DomainPosition memory position = assets[asset].positions[domain];
         return (
