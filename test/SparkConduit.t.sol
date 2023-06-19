@@ -2,23 +2,68 @@
 pragma solidity ^0.8.0;
 
 import "dss-test/DssTest.sol";
+import { MockERC20 } from 'mock-erc20/src/MockERC20.sol';
 
-import { SparkConduit, ISparkConduit, IAuth, IPool } from "../src/SparkConduit.sol";
-
-contract TokenMock {
-
-    address public lastApproveAddress;
-    uint256 public lastApproveAmount;
-
-    function approve(address spender, uint256 amount) external returns (bool) {
-        lastApproveAddress = spender;
-        lastApproveAmount = amount;
-        return true;
-    }
-
-}
+import {
+    SparkConduit,
+    ISparkConduit,
+    IAuth,
+    IPool,
+    IInterestRateDataSource,
+    IERC20,
+    DataTypes
+} from "../src/SparkConduit.sol";
 
 contract PoolMock {
+
+    MockERC20 public aToken;
+    uint256 public liquidityIndex = 10 ** 27;
+
+    constructor(Vm vm) {
+        aToken = new MockERC20('aToken', 'aTKN', 18);
+        vm.prank(address(aToken)); aToken.approve(address(this), type(uint256).max);
+    }
+
+    function supply(
+        address asset,
+        uint256 amount,
+        address,
+        uint16
+    ) external {
+        IERC20(asset).transferFrom(msg.sender, address(aToken), amount);
+    }
+
+    function withdraw(
+        address asset,
+        uint256 amount,
+        address to
+    ) external {
+        IERC20(asset).transferFrom(address(aToken), to, amount);
+    }
+
+    function getReserveData(address) external view returns (DataTypes.ReserveData memory) {
+        return DataTypes.ReserveData({
+            configuration: DataTypes.ReserveConfigurationMap(0),
+            liquidityIndex: uint128(liquidityIndex),
+            currentLiquidityRate: 0,
+            variableBorrowIndex: 0,
+            currentVariableBorrowRate: 0,
+            currentStableBorrowRate: 0,
+            lastUpdateTimestamp: 0,
+            id: 0,
+            aTokenAddress: address(aToken),
+            stableDebtTokenAddress: address(0),
+            variableDebtTokenAddress: address(0),
+            interestRateStrategyAddress: address(0),
+            accruedToTreasury: 0,
+            unbacked: 0,
+            isolationModeTotalDebt: 0
+        });
+    }
+
+    function setLiquidityIndex(uint256 _liquidityIndex) external {
+        liquidityIndex = _liquidityIndex;
+    }
 
 }
 
@@ -58,12 +103,14 @@ contract RolesMock {
 contract SparkConduitTest is DssTest {
 
     uint256 constant RBPS = RAY / 10000;
+    uint256 constant WBPS = WAD / 10000;
     uint256 constant SECONDS_PER_YEAR = 365 days;
+    bytes32 constant DOMAIN = 'some-domain';
 
     PoolMock  pool;
     PotMock   pot;
     RolesMock roles;
-    TokenMock token;
+    MockERC20 token;
 
     SparkConduit conduit;
 
@@ -71,10 +118,10 @@ contract SparkConduitTest is DssTest {
     event SetAssetEnabled(address indexed asset, bool enabled);
 
     function setUp() public {
-        pool  = new PoolMock();
+        pool  = new PoolMock(vm);
         pot   = new PotMock();
         roles = new RolesMock();
-        token = new TokenMock();
+        token = new MockERC20('Token', 'TKN', 18);
 
         vm.expectEmit();
         emit Rely(address(this));
@@ -83,6 +130,10 @@ contract SparkConduitTest is DssTest {
             address(pot),
             address(roles)
         );
+
+        // Mint us some of the token and approve the conduit
+        token.mint(address(this), 1000 ether);
+        token.approve(address(conduit), type(uint256).max);
     }
 
     function test_constructor() public {
@@ -128,9 +179,16 @@ contract SparkConduitTest is DssTest {
     function test_getInterestData() public {
         conduit.setSubsidySpread(50 * RBPS);
         pot.setDSR((350 * RBPS) / SECONDS_PER_YEAR + RAY);
+        conduit.setAssetEnabled(address(token), true);
+        conduit.deposit(DOMAIN, address(token), 100 ether);
+        conduit.requestFunds(DOMAIN, address(token), TEST_ADDRESS, 50 ether);
 
-        InterestData memory data = conduit.getInterestData(TEST_ADDRESS);
+        IInterestRateDataSource.InterestData memory data = conduit.getInterestData(address(token));
 
+        assertApproxEqRel(data.baseRate, 400 * RBPS, WBPS);
+        assertApproxEqRel(data.subsidyRate, 350 * RBPS, WBPS);
+        assertEq(data.currentDebt, 100 ether);
+        assertEq(data.targetDebt, 50 ether);
     }
 
     function test_setSubsidySpread() public {
@@ -144,13 +202,19 @@ contract SparkConduitTest is DssTest {
     function test_setAssetEnabled() public {
         (bool enabled,,) = conduit.getAssetData(address(token));
         assertEq(enabled, false);
+        assertEq(token.allowance(address(conduit), address(pool)), 0);
         vm.expectEmit();
         emit SetAssetEnabled(address(token), true);
         conduit.setAssetEnabled(address(token), true);
         (enabled,,) = conduit.getAssetData(address(token));
         assertEq(enabled, true);
-        assertEq(token.lastApproveAddress(), address(pool));
-        assertEq(token.lastApproveAmount(), type(uint256).max);
+        assertEq(token.allowance(address(conduit), address(pool)), type(uint256).max);
+        vm.expectEmit();
+        emit SetAssetEnabled(address(token), false);
+        conduit.setAssetEnabled(address(token), false);
+        (enabled,,) = conduit.getAssetData(address(token));
+        assertEq(enabled, false);
+        assertEq(token.allowance(address(conduit), address(pool)), 0);
     }
 
 }
