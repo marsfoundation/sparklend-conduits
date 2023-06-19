@@ -9,36 +9,36 @@ import { IInterestRateDataSource } from './interfaces/IInterestRateDataSource.so
 
 /**
  * @title DaiInterestRateStrategy
- * @notice Flat interest rate curve which is a spread on the Stability Fee Base Rate unless Allocators needs liquidity.
- * @dev The interest rate strategy is intended to be used by Spark Lend pool that is supplied by a AllocatorDAO Conduit. Further, is implemented for DAI so that a the Spark Lend protocol should be able to unwind as fast as possible in case of debt limit changes downwards by incentivizing borrowers and lenders to move DAI into the protocol. Hence, it operates in two modes. Namely, it distinguishes the unhealthy scenario, where the D3M supplied too much (the Spark Lend D3M ink's debt exceeds the debt limit), from the healthy one, where the D3M is healthy.
+ * @notice Flat interest rate curve which is a spread on the Subsidy Rate unless Allocators needs liquidity.
+ * @dev The interest rate strategy is intended to be used by Spark Lend pool that is supplied by a AllocatorDAO Conduit. Further, is implemented for DAI so that a the Spark Lend protocol should be able to unwind in case of debt limit changes downwards by incentivizing borrowers and lenders to move DAI into the protocol. Hence, it operates in two modes. Namely, it distinguishes the unhealthy scenario, where the Allocators supplied too much (targetDebt < currentDebt), from the healthy one, where the allocation is healthy.
  * 
- * Note that the base rate conversion, maximum rate and the borrow and supply spreads are constants, while the DSR rate is queried from Maker's Pot contract. The base rate is defined as:
- * 
- * ```
- * Rbase = min(Rdsr * baseRateConversion, Rmax − RborrowSpread)
- * ```
- * 
- * Meaning, that the sum of the base rate and the borrow spread cannot exceed the maximum rate.
- * 
- * Assume the D3M is healthy. The borrow rate is a constant defined as the Dai Savings Rate plus a borrow spread. While the borrowed amount is below a certain performance value, the supply rate is set to zero. Once the borrowed amount reaches the performance value, the supply rate is computed as the Dai Savings Rate plus a supply spread, multiplied with the ratio of the amount, that went over the premium and the total liquidity (borrows + available capital) in the pool. Hence, the rates can be described as follows:
+ * Note that the spread is constant, while the subsidy rate is queried from the Spark Conduit. The base borrow rate is defined as:
  * 
  * ```
- * Rborrow = Rbase + RborrowSpread
- * Rsupply = (Rbase + RsupplySpread) * max(0, Cborrowed − Cperformance) / (Cborrowed + Cavailable)
+ * Rbase = min(Rsubsidy, Rmax − Rspread)
  * ```
  * 
- * Note it yields that the borrow rate is always constant. Further, suppliers are only incentivized to supply capital after a minimum borrow amount is reached. During the times, as the third-party suppliers are not incentivized, we expect that the D3M provides sufficient DAI for the lending market. However, once the protocol makes sufficient profits, it will incentivize third party suppliers (as the D3M will have a certain debt limit).
+ * Meaning, that the sum of the base rate and the spread cannot exceed the maximum rate.
  * 
- * In case the D3M is unhealthy, meaning that the debt is higher than the debt limit, the D3M will try to wind down. In that scenario, the interest rate strategy will try to incentivize borrowers to pay back their debt, and will try to incentivize suppliers to start lending DAI. Hence, the borrow and supply rate will increase according to the debt ratio of the D3M. More specifically, the rates are defined as:
+ * Assume the allocation is healthy. The borrow rate is a constant defined as the subsidy rate + spread. The supply rate is computed as the borrow rate, multiplied with the ratio of the amount, that went over the premium and the total liquidity (borrows + available capital) in the pool. Hence, the rates can be described as follows:
  * 
  * ```
- * Rborrow = Rmax − (Rmax − (rbase + rborrowSpread)) / debtRatio
- * Rsupply = (Cborrowed / (Cborrowed + Cavailable)) * Rborrow
+ * Rborrow = Rbase
+ * Rsupply = Rborrow * Cborrowed / (Cborrowed + Cavailable) or 0 if Cborrowed + Cavailable == 0
  * ```
  * 
- * Note, that if the debt ratio increases, the borrow rate increases as a negated inverse function (starting at the regular borrowing rate). Similarly, the supply rate will increase in terms of the debt ratio, however, scaled by the utilization ratio. Thus, the higher the utilization, the closer will the supply rate be to the borrow rate. Ultimately, that leads to the protocol forfeiting potential revenue by sharing it with third-party supplier to incentivize the D3M's stabilization. Note that the stable borrow rate is always 0.
+ * Note it yields that the borrow rate is always constant. Further, third-party suppliers are not incentivized as the supply rate will be below market rate unless allactors need capital returned.
  * 
- * The interest rate definition described above is implemented in calculateInterestRates(). However, note that the debt ratio and the base rate are both not queried on every interest rate calculation; but, retrieved from a cache (as these will not change often). The variables can be recomputed with function recompute() that sets the base rate to the current Dai Savings Rate and computes the debt ratio as the ratio of the current Ilk.Art and current Ilk.line. It is assumed that the recomputation is triggered on a regular basis.
+ * In case the allocation is unhealthy, meaning that the debt is higher than the debt limit, the allocators will try to wind down. In that scenario, the interest rate strategy will try to incentivize borrowers to pay back their debt, and will try to incentivize suppliers to start lending DAI. Hence, the borrow and supply rate will increase according to the debt ratio of the D3M. More specifically, the rates are defined as:
+ * 
+ * ```
+ * Rborrow = Rmax − (Rmax − Rbase) / debtRatio
+ * Rsupply = Rborrow * Cborrowed / (Cborrowed + Cavailable)
+ * ```
+ * 
+ * Note, that if the debt ratio increases, the borrow rate increases as a negated inverse function (starting at the regular borrowing rate). Similarly, the supply rate will increase in terms of the debt ratio, however, scaled by the utilization ratio. Thus, the higher the utilization, the closer will the supply rate be to the borrow rate. Ultimately, that leads to the protocol forfeiting potential revenue by sharing it with third-party supplier to incentivize the allocators stabilization. Note that the stable borrow rate is always 0.
+ * 
+ * The interest rate definition described above is implemented in calculateInterestRates(). However, note that the debt ratio and the base borrow rate are both not queried on every interest rate calculation; but, retrieved from a cache (as these will not change often). The variables can be recomputed with function recompute() that sets the base borrow rate to the current subsidy rate + spread and computes the debt ratio as the ratio of the currentDebt and targetDebt. It is assumed that the recomputation is triggered on a regular basis.
  * 
  * Only supports variable interest pool.
  */
