@@ -122,7 +122,7 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
 
     /// @inheritdoc IAllocatorConduit
     function withdraw(bytes32 domain, address asset, address destination, uint256 amount) external override domainAuth(domain) validDestination(domain, destination) {
-        // Normally you should update state first for re-entrancy, but we need an update-to-date liquidity index for that
+        // Normally you should update local state first for re-entrancy, but we need an update-to-date liquidity index for that
         pool.withdraw(asset, amount, destination);
 
         // Convert asset amount to shares
