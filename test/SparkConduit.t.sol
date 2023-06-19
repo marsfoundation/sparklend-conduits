@@ -24,6 +24,12 @@ contract PoolMock {
 
 contract PotMock {
 
+    uint256 public dsr;
+
+    function setDSR(uint256 _dsr) external {
+        dsr = _dsr;
+    }
+
 }
 
 contract RolesMock {
@@ -52,6 +58,7 @@ contract RolesMock {
 contract SparkConduitTest is DssTest {
 
     uint256 constant RBPS = RAY / 10000;
+    uint256 constant SECONDS_PER_YEAR = 365 days;
 
     PoolMock  pool;
     PotMock   pot;
@@ -116,6 +123,14 @@ contract SparkConduitTest is DssTest {
             SparkConduit.withdraw.selector,
             SparkConduit.requestFunds.selector
         ]);
+    }
+
+    function test_getInterestData() public {
+        conduit.setSubsidySpread(50 * RBPS);
+        pot.setDSR((350 * RBPS) / SECONDS_PER_YEAR + RAY);
+
+        InterestData memory data = conduit.getInterestData(TEST_ADDRESS);
+
     }
 
     function test_setSubsidySpread() public {
