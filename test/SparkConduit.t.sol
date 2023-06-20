@@ -171,18 +171,48 @@ contract SparkConduitTest is DssTest {
 
     function test_deposit() public {
         conduit.setAssetEnabled(address(token), true);
+        pool.setLiquidityIndex(101_00 * RBPS);
 
         assertEq(token.balanceOf(address(pool.aToken())), 0);
         assertEq(conduit.getDeposits(ILK, address(token)), 0);
         assertEq(conduit.getTotalDeposits(address(token)), 0);
 
-        vm.expectEmit();
-        emit Deposit(ILK, address(token), 100 ether);
-        conduit.deposit(ILK, address(token), 100 ether);
+        uint256 amount = 100 ether;
+        uint256 shares = amount * RAY / (101_00 * RBPS);
 
-        assertEq(token.balanceOf(address(pool.aToken())), 100 ether);
-        assertEq(conduit.getDeposits(ILK, address(token)), 100 ether);
-        assertEq(conduit.getTotalDeposits(address(token)), 100 ether);
+        vm.expectEmit();
+        emit Deposit(ILK, address(token), shares);
+        conduit.deposit(ILK, address(token), amount);
+
+        assertEq(token.balanceOf(address(pool.aToken())), amount);
+        assertEq(conduit.getDeposits(ILK, address(token)), shares);
+        assertEq(conduit.getTotalDeposits(address(token)), shares);
+    }
+
+    function test_deposit_pending_withdrawal_partial_fill() public {
+        conduit.setAssetEnabled(address(token), true);
+        pool.setLiquidityIndex(101_00 * RBPS);
+
+        uint256 amount = 100 ether;
+        uint256 shares = amount * RAY / (101_00 * RBPS);
+        conduit.deposit(ILK, address(token), amount);
+
+        assertEq(conduit.getDeposits(ILK, address(token)), shares);
+        assertEq(conduit.getTotalDeposits(address(token)), shares);
+
+        uint256 withdrawalAmount = 50 ether;
+        uint256 withdrawalShares = withdrawalAmount * RAY / (101_00 * RBPS);
+        deal(address(token), address(pool.aToken()), 0);     // Zero out the liquidity so we can request funds
+        conduit.requestFunds(ILK, address(token), withdrawalAmount);
+
+        amount = 25 ether;
+        shares = amount * RAY / (101_00 * RBPS);
+        vm.expectEmit();
+        emit Deposit(ILK, address(token), shares);
+        conduit.deposit(ILK, address(token), amount);
+
+        assertEq(conduit.getDeposits(ILK, address(token)), shares);
+        assertEq(conduit.getTotalDeposits(address(token)), shares);
     }
 
     function test_getInterestData() public {

@@ -106,8 +106,10 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
 
             assets[asset].positions[ilk].deposits += depositDelta;
             assets[asset].totalDeposits += depositDelta;
-            assets[asset].positions[ilk].withdrawals = 0;
-            assets[asset].totalWithdrawals -= withdrawals;
+            if (withdrawals > 0) {
+                assets[asset].positions[ilk].withdrawals = 0;
+                assets[asset].totalWithdrawals -= withdrawals;
+            }
         }
 
         emit Deposit(ilk, asset, amount);
