@@ -105,7 +105,7 @@ contract SparkConduitTest is DssTest {
     uint256 constant RBPS = RAY / 10000;
     uint256 constant WBPS = WAD / 10000;
     uint256 constant SECONDS_PER_YEAR = 365 days;
-    bytes32 constant DOMAIN = 'some-domain';
+    bytes32 constant ILK = 'some-ilk';
 
     PoolMock  pool;
     PotMock   pot;
@@ -114,6 +114,8 @@ contract SparkConduitTest is DssTest {
 
     SparkConduit conduit;
 
+    event Deposit(bytes32 indexed ilk, address indexed asset, uint256 amount);
+    event Withdraw(bytes32 indexed ilk, address indexed asset, address destination, uint256 amount);
     event SetSubsidySpread(uint256 subsidySpread);
     event SetAssetEnabled(address indexed asset, bool enabled);
 
@@ -156,10 +158,10 @@ contract SparkConduitTest is DssTest {
         ]);
     }
 
-    function test_domainAuthModifiers() public {
+    function test_ilkAuthModifiers() public {
         roles.setCanCall(false);
 
-        checkModifier(address(conduit), "SparkConduit/domain-not-authorized", [
+        checkModifier(address(conduit), "SparkConduit/ilk-not-authorized", [
             SparkConduit.deposit.selector,
             SparkConduit.withdraw.selector,
             SparkConduit.requestFunds.selector,
@@ -167,21 +169,29 @@ contract SparkConduitTest is DssTest {
         ]);
     }
 
-    function test_validDestinationModifiers() public {
-        roles.setIsWhitelistedDestination(false);
+    function test_deposit() public {
+        conduit.setAssetEnabled(address(token), true);
 
-        checkModifier(address(conduit), "SparkConduit/destination-not-authorized", [
-            SparkConduit.withdraw.selector,
-            SparkConduit.requestFunds.selector
-        ]);
+        assertEq(token.balanceOf(address(pool.aToken())), 0);
+        assertEq(conduit.getDeposits(ILK, address(token)), 0);
+        assertEq(conduit.getTotalDeposits(address(token)), 0);
+
+        vm.expectEmit();
+        emit Deposit(ILK, address(token), 100 ether);
+        conduit.deposit(ILK, address(token), 100 ether);
+
+        assertEq(token.balanceOf(address(pool.aToken())), 100 ether);
+        assertEq(conduit.getDeposits(ILK, address(token)), 100 ether);
+        assertEq(conduit.getTotalDeposits(address(token)), 100 ether);
     }
 
     function test_getInterestData() public {
         conduit.setSubsidySpread(50 * RBPS);
         pot.setDSR((350 * RBPS) / SECONDS_PER_YEAR + RAY);
         conduit.setAssetEnabled(address(token), true);
-        conduit.deposit(DOMAIN, address(token), 100 ether);
-        conduit.requestFunds(DOMAIN, address(token), TEST_ADDRESS, 50 ether);
+        conduit.deposit(ILK, address(token), 100 ether);
+        deal(address(token), address(pool.aToken()), 0);     // Zero out the liquidity so we can request funds
+        conduit.requestFunds(ILK, address(token), 50 ether);
 
         IInterestRateDataSource.InterestData memory data = conduit.getInterestData(address(token));
 

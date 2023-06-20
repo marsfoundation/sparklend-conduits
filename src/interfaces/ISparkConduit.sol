@@ -15,26 +15,18 @@ interface ISparkConduit is IAllocatorConduit, IAuth {
 
     /**
      * @notice Event emitted when a new fund request is made
-     * @param domain The domain from which the funds are requested
+     * @param ilk The ilk from which the funds are requested
      * @param asset The asset for which the funds are requested
      * @param amount The amount of funds requested
      */
-    event RequestFunds(bytes32 indexed domain, address indexed asset, uint256 amount);
+    event RequestFunds(bytes32 indexed ilk, address indexed asset, uint256 amount);
 
     /**
      * @notice Event emitted when a fund request is cancelled
-     * @param domain The domain whose fund request is cancelled
+     * @param ilk The ilk whose fund request is cancelled
      * @param asset The asset whose fund request is cancelled
      */
-    event CancelFundRequest(bytes32 indexed domain, address indexed asset);
-
-    /**
-     * @notice Event emitted when a fund request is completed
-     * @param domain The domain whose fund request is completed
-     * @param asset The asset whose fund request is completed
-     * @param amount The amount of funds fulfilled
-     */
-    event CompleteFundRequest(bytes32 indexed domain, address indexed asset, uint256 amount);
+    event CancelFundRequest(bytes32 indexed ilk, address indexed asset);
 
     /**
      * @notice Event emitted when subsidy spread is set
@@ -76,27 +68,18 @@ interface ISparkConduit is IAllocatorConduit, IAuth {
 
     /**
      * @notice Makes a request for funds
-     * @param domain The domain from which the funds are requested
+     * @param ilk The ilk from which the funds are requested
      * @param asset The asset for which the funds are requested
-     * @param destination The destination where the funds should be transferred
      * @param amount The amount of funds requested
      */
-    function requestFunds(bytes32 domain, address asset, address destination, uint256 amount) external;
+    function requestFunds(bytes32 ilk, address asset, uint256 amount) external;
 
     /**
      * @notice Cancels a fund request
-     * @param domain The domain whose fund request is to be cancelled
+     * @param ilk The ilk whose fund request is to be cancelled
      * @param asset The asset whose fund request is to be cancelled
      */
-    function cancelFundRequest(bytes32 domain, address asset) external;
-
-    /**
-     * @notice Completes a fund request
-     * @dev This is a permissionless function to prevent AllocatorDAOs from not withdrawing and keeping interest rates high
-     * @param domain The domain whose fund request is to be completed
-     * @param asset The asset whose fund request is to be completed
-     */
-    function completeFundRequest(bytes32 domain, address asset) external;
+    function cancelFundRequest(bytes32 ilk, address asset) external;
 
     /**
      * @notice Sets the subsidy spread
@@ -121,13 +104,50 @@ interface ISparkConduit is IAllocatorConduit, IAuth {
     function getAssetData(address asset) external view returns (bool enabled, uint256 totalDeposits, uint256 totalWithdrawals);
 
     /**
-     * @notice Returns the position of a domain for an asset
-     * @param domain The domain for which to return the position
-     * @param asset The asset for which to return the position
-     * @return deposits The total deposits for the domain
-     * @return withdrawals The total withdrawals for the domain
+     * @notice Checks if an asset is enabled or not
+     * @param asset The address of the asset
+     * @return Boolean value indicating whether the asset is enabled
      */
-    function getDomainPosition(bytes32 domain, address asset) external view returns (uint256 deposits, uint256 withdrawals);
+    function isAssetEnabled(address asset) external view returns (bool);
+
+    /**
+     * @notice Gets the total deposits of an asset
+     * @param asset The address of the asset
+     * @return The total amount of deposits for the asset
+     */
+    function getTotalDeposits(address asset) external view returns (uint256);
+
+    /**
+     * @notice Gets the total withdrawals of an asset
+     * @param asset The address of the asset
+     * @return The total amount of withdrawals for the asset
+     */
+    function getTotalWithdrawals(address asset) external view returns (uint256);
+
+    /**
+     * @notice Returns the position of a ilk for an asset
+     * @param ilk The ilk for which to return the position
+     * @param asset The asset for which to return the position
+     * @return deposits The total deposits for the ilk
+     * @return withdrawals The total withdrawals for the ilk
+     */
+    function getPosition(bytes32 ilk, address asset) external view returns (uint256 deposits, uint256 withdrawals);
+
+    /**
+     * @notice Gets the total deposits for a given ilk and asset
+     * @param ilk The ilk to get the deposits for
+     * @param asset The asset to get the deposits for
+     * @return The total amount of deposits for the given ilk and asset
+     */
+    function getDeposits(bytes32 ilk, address asset) external view returns (uint256);
+
+    /**
+     * @notice Gets the total withdrawals for a given ilk and asset
+     * @param ilk The ilk to get the withdrawals for
+     * @param asset The asset to get the withdrawals for
+     * @return The total amount of withdrawals for the given ilk and asset
+     */
+    function getWithdrawals(bytes32 ilk, address asset) external view returns (uint256);
 
 }
 

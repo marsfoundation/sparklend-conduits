@@ -15,16 +15,14 @@ interface PotLike {
 
 interface RolesLike {
     function canCall(bytes32, address, address, bytes4) external view returns (bool);
-    function isWhitelistedDestination(bytes32, address) external view returns (bool);
 }
 
 contract SparkConduit is ISparkConduit, IInterestRateDataSource {
 
     // Please note deposits/withdrawals are in aToken "shares" instead of the underlying asset
-    struct DomainPosition {
+    struct Position {
         uint256 deposits;
         uint256 withdrawals;
-        address withdrawalDestination;
     }
 
     // Please note totalDeposits/totalWithdrawals are in aToken "shares" instead of the underlying asset
@@ -32,7 +30,7 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
         bool enabled;
         uint256 totalDeposits;
         uint256 totalWithdrawals;
-        mapping (bytes32 => DomainPosition) positions;
+        mapping (bytes32 => Position) positions;
     }
 
     uint256 private constant WAD = 10 ** 18;
@@ -58,13 +56,8 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
         _;
     }
 
-    modifier domainAuth(bytes32 domain) {
-        require(RolesLike(roles).canCall(domain, msg.sender, address(this), msg.sig), "SparkConduit/domain-not-authorized");
-        _;
-    }
-
-    modifier validDestination(bytes32 domain, address destination) {
-        require(RolesLike(roles).isWhitelistedDestination(domain, destination), "SparkConduit/destination-not-authorized");
+    modifier ilkAuth(bytes32 ilk) {
+        require(RolesLike(roles).canCall(ilk, msg.sender, address(this), msg.sig), "SparkConduit/ilk-not-authorized");
         _;
     }
 
@@ -82,19 +75,19 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
     }
 
     /// @inheritdoc IAuth
-    function rely(address usr) external override auth {
+    function rely(address usr) external auth {
         wards[usr] = 1;
         emit Rely(usr);
     }
 
     /// @inheritdoc IAuth
-    function deny(address usr) external override auth {
+    function deny(address usr) external auth {
         wards[usr] = 0;
         emit Deny(usr);
     }
 
     /// @inheritdoc IAllocatorConduit
-    function deposit(bytes32 domain, address asset, uint256 amount) external override domainAuth(domain) {
+    function deposit(bytes32 ilk, address asset, uint256 amount) external ilkAuth(ilk) {
         require(assets[asset].enabled, "SparkConduit/asset-disabled");
         require(IERC20(asset).transferFrom(msg.sender, address(this), amount),  "SparkConduit/transfer-failed");
         
@@ -104,24 +97,24 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
         uint256 liquidityIndex = pool.getReserveData(asset).liquidityIndex;
         amount = amount * RAY / liquidityIndex;
 
-        uint256 withdrawals = assets[asset].positions[domain].withdrawals;
+        uint256 withdrawals = assets[asset].positions[ilk].withdrawals;
         if (amount <= withdrawals) {
-            assets[asset].positions[domain].withdrawals -= amount;
+            assets[asset].positions[ilk].withdrawals -= amount;
             assets[asset].totalWithdrawals -= amount;
         } else {
             uint256 depositDelta = amount - withdrawals;
 
-            assets[asset].positions[domain].deposits += depositDelta;
+            assets[asset].positions[ilk].deposits += depositDelta;
             assets[asset].totalDeposits += depositDelta;
-            assets[asset].positions[domain].withdrawals = 0;
+            assets[asset].positions[ilk].withdrawals = 0;
             assets[asset].totalWithdrawals -= withdrawals;
         }
 
-        emit Deposit(domain, asset, amount);
+        emit Deposit(ilk, asset, amount);
     }
 
     /// @inheritdoc IAllocatorConduit
-    function withdraw(bytes32 domain, address asset, address destination, uint256 amount) external override domainAuth(domain) validDestination(domain, destination) {
+    function withdraw(bytes32 ilk, address asset, address destination, uint256 amount) external ilkAuth(ilk) {
         // Normally you should update local state first for re-entrancy, but we need an update-to-date liquidity index for that
         pool.withdraw(asset, amount, destination);
 
@@ -129,35 +122,35 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
         uint256 liquidityIndex = pool.getReserveData(asset).liquidityIndex;
         amount = amount * RAY / liquidityIndex;
 
-        uint256 withdrawals = assets[asset].positions[domain].withdrawals;
-        assets[asset].positions[domain].deposits -= amount;
+        uint256 withdrawals = assets[asset].positions[ilk].withdrawals;
+        assets[asset].positions[ilk].deposits -= amount;
         assets[asset].totalDeposits -= amount;
         if (amount <= withdrawals) {
-            assets[asset].positions[domain].withdrawals -= amount;
+            assets[asset].positions[ilk].withdrawals -= amount;
             assets[asset].totalWithdrawals -= amount;
         } else {
-            assets[asset].positions[domain].withdrawals = 0;
+            assets[asset].positions[ilk].withdrawals = 0;
             assets[asset].totalWithdrawals -= withdrawals;
         }
 
-        emit Withdraw(domain, asset, destination, amount);
+        emit Withdraw(ilk, asset, destination, amount);
     }
 
     /// @inheritdoc IAllocatorConduit
-    function maxDeposit(bytes32, address) external override pure returns (uint256 maxDeposit_) {
+    function maxDeposit(bytes32, address) external pure returns (uint256 maxDeposit_) {
         maxDeposit_ = type(uint256).max;   // Purposefully ignoring any potental supply cap limits
     }
 
     /// @inheritdoc IAllocatorConduit
-    function maxWithdraw(bytes32 domain, address asset) public override view returns (uint256 maxWithdraw_) {
+    function maxWithdraw(bytes32 ilk, address asset) public view returns (uint256 maxWithdraw_) {
         DataTypes.ReserveData memory reserveData = pool.getReserveData(asset);
-        maxWithdraw_ = assets[asset].positions[domain].deposits * reserveData.liquidityIndex / RAY;
+        maxWithdraw_ = assets[asset].positions[ilk].deposits * reserveData.liquidityIndex / RAY;
         uint256 liquidityAvailable = IERC20(asset).balanceOf(reserveData.aTokenAddress);
         if (maxWithdraw_ > liquidityAvailable) maxWithdraw_ = liquidityAvailable;
     }
 
     /// @inheritdoc ISparkConduit
-    function requestFunds(bytes32 domain, address asset, address destination, uint256 amount) external override domainAuth(domain) validDestination(domain, destination) {
+    function requestFunds(bytes32 ilk, address asset, uint256 amount) external ilkAuth(ilk) {
         DataTypes.ReserveData memory reserveData = pool.getReserveData(asset);
         uint256 liquidityAvailable = IERC20(asset).balanceOf(reserveData.aTokenAddress);
         // TODO Confirm that we can get the liquidity to exact zero -- may be sometimes impossible due to rounding
@@ -167,51 +160,27 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
         // Please note the interest conversion may be slightly out of date as there is no index update
         amount = amount * RAY / pool.getReserveData(asset).liquidityIndex;
 
-        uint256 deposits = assets[asset].positions[domain].deposits;
+        uint256 deposits = assets[asset].positions[ilk].deposits;
         require(amount <= deposits, "SparkConduit/amount-too-large");
-        uint256 prevWithdrawals = assets[asset].positions[domain].withdrawals;
-        assets[asset].positions[domain].withdrawals = amount;
-        assets[asset].positions[domain].withdrawalDestination = destination;
+        uint256 prevWithdrawals = assets[asset].positions[ilk].withdrawals;
+        assets[asset].positions[ilk].withdrawals = amount;
         assets[asset].totalWithdrawals = assets[asset].totalWithdrawals + amount - prevWithdrawals;
 
-        emit RequestFunds(domain, asset, amount);
+        emit RequestFunds(ilk, asset, amount);
     }
 
     /// @inheritdoc ISparkConduit
-    function cancelFundRequest(bytes32 domain, address asset) external override domainAuth(domain) {
-        uint256 withdrawals = assets[asset].positions[domain].withdrawals;
+    function cancelFundRequest(bytes32 ilk, address asset) external ilkAuth(ilk) {
+        uint256 withdrawals = assets[asset].positions[ilk].withdrawals;
         require(withdrawals > 0, "SparkConduit/no-active-fund-requests");
-        assets[asset].positions[domain].withdrawals = 0;
+        assets[asset].positions[ilk].withdrawals = 0;
         assets[asset].totalWithdrawals -= withdrawals;
 
-        emit CancelFundRequest(domain, asset);
-    }
-
-    /// @inheritdoc ISparkConduit
-    function completeFundRequest(bytes32 domain, address asset) external override {
-        DataTypes.ReserveData memory reserveData = pool.getReserveData(asset);
-        uint256 withdrawalShares = assets[asset].positions[domain].withdrawals;
-        uint256 toWithdraw = withdrawalShares * reserveData.liquidityIndex / RAY;   // Approximate what we are owed
-        uint256 liquidityAvailable = IERC20(asset).balanceOf(reserveData.aTokenAddress);
-        if (liquidityAvailable < toWithdraw) toWithdraw = liquidityAvailable;
-        require(toWithdraw > 0, "SparkConduit/nothing-to-withdraw");
-
-        pool.withdraw(asset, toWithdraw, assets[asset].positions[domain].withdrawalDestination);
-
-        // Recompute the share amount based on new liquidity index numbers
-        uint256 amount = toWithdraw * RAY / pool.getReserveData(asset).liquidityIndex;
-
-        // Since interest can only increase, we can safetly assume amount <= withdrawals
-        assets[asset].positions[domain].deposits -= amount;
-        assets[asset].totalDeposits -= amount;
-        assets[asset].positions[domain].withdrawals -= amount;
-        assets[asset].totalWithdrawals -= amount;
-
-        emit CompleteFundRequest(domain, asset, toWithdraw);
+        emit CancelFundRequest(ilk, asset);
     }
 
     /// @inheritdoc IInterestRateDataSource
-    function getInterestData(address asset) external override view returns (InterestData memory data) {
+    function getInterestData(address asset) external view returns (InterestData memory data) {
         // Convert the DSR a yearly APR
         uint256 dsr = (PotLike(pot).dsr() - RAY) * SECONDS_PER_YEAR;
         uint256 deposits = assets[asset].totalDeposits;
@@ -240,7 +209,7 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
     }
 
     /// @inheritdoc ISparkConduit
-    function getAssetData(address asset) external view returns (bool enabled, uint256 totalDeposits, uint256 totalWithdrawals) {
+    function getAssetData(address asset) external view returns (bool _enabled, uint256 _totalDeposits, uint256 _totalWithdrawals) {
         return (
             assets[asset].enabled,
             assets[asset].totalDeposits,
@@ -249,12 +218,37 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
     }
 
     /// @inheritdoc ISparkConduit
-    function getDomainPosition(bytes32 domain, address asset) external view returns (uint256 deposits, uint256 withdrawals) {
-        DomainPosition memory position = assets[asset].positions[domain];
+    function isAssetEnabled(address asset) external view returns (bool) {
+        return assets[asset].enabled;
+    }
+
+    /// @inheritdoc ISparkConduit
+    function getTotalDeposits(address asset) external view returns (uint256) {
+        return assets[asset].totalDeposits;
+    }
+
+    /// @inheritdoc ISparkConduit
+    function getTotalWithdrawals(address asset) external view returns (uint256) {
+        return assets[asset].totalWithdrawals;
+    }
+
+    /// @inheritdoc ISparkConduit
+    function getPosition(bytes32 ilk, address asset) external view returns (uint256 _deposits, uint256 _withdrawals) {
+        Position memory position = assets[asset].positions[ilk];
         return (
             position.deposits,
             position.withdrawals
         );
+    }
+
+    /// @inheritdoc ISparkConduit
+    function getDeposits(bytes32 ilk, address asset) external view returns (uint256) {
+        return assets[asset].positions[ilk].deposits;
+    }
+
+    /// @inheritdoc ISparkConduit
+    function getWithdrawals(bytes32 ilk, address asset) external view returns (uint256) {
+        return assets[asset].positions[ilk].withdrawals;
     }
 
 }
