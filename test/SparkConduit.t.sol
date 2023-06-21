@@ -216,6 +216,7 @@ contract SparkConduitTest is DssTest {
         conduit.deposit(ILK, address(token), 100 ether);
 
         assertEq(token.balanceOf(address(pool.aToken())), 100 ether);
+        assertEq(token.balanceOf(TEST_ADDRESS), 0);
         assertEq(conduit.getDeposits(ILK, address(token)), 100 ether);
         assertEq(conduit.getTotalDeposits(address(token)), 100 ether);
 
@@ -224,6 +225,7 @@ contract SparkConduitTest is DssTest {
         conduit.withdraw(ILK, address(token), TEST_ADDRESS, 50 ether);
 
         assertEq(token.balanceOf(address(pool.aToken())), 50 ether);
+        assertEq(token.balanceOf(TEST_ADDRESS), 50 ether);
         assertEq(conduit.getDeposits(ILK, address(token)), 50 ether);
         assertEq(conduit.getTotalDeposits(address(token)), 50 ether);
     }
