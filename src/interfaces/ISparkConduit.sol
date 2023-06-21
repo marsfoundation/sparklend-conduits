@@ -67,7 +67,7 @@ interface ISparkConduit is IAllocatorConduit, IAuth {
     function subsidySpread() external view returns (uint256);
 
     /**
-     * @notice Makes a request for funds
+     * @notice Makes a request for funds. This will override any previous request with a new `amount`.
      * @param ilk The ilk from which the funds are requested
      * @param asset The asset for which the funds are requested
      * @param amount The amount of funds requested

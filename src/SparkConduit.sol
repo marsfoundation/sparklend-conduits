@@ -89,28 +89,16 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
     /// @inheritdoc IAllocatorConduit
     function deposit(bytes32 ilk, address asset, uint256 amount) external ilkAuth(ilk) {
         require(assets[asset].enabled, "SparkConduit/asset-disabled");
+        require(assets[asset].positions[ilk].withdrawals == 0, "SparkConduit/no-deposit-with-pending-withdrawals");
         require(IERC20(asset).transferFrom(msg.sender, address(this), amount),  "SparkConduit/transfer-failed");
         
         pool.supply(asset, amount, address(this), 0);
 
         // Convert asset amount to shares
-        uint256 liquidityIndex = pool.getReserveData(asset).liquidityIndex;
-        amount = amount * RAY / liquidityIndex;
+        uint256 shares = amount * RAY / pool.getReserveData(asset).liquidityIndex;
 
-        uint256 withdrawals = assets[asset].positions[ilk].withdrawals;
-        if (amount <= withdrawals) {
-            assets[asset].positions[ilk].withdrawals -= amount;
-            assets[asset].totalWithdrawals -= amount;
-        } else {
-            uint256 depositDelta = amount - withdrawals;
-
-            assets[asset].positions[ilk].deposits += depositDelta;
-            assets[asset].totalDeposits += depositDelta;
-            if (withdrawals > 0) {
-                assets[asset].positions[ilk].withdrawals = 0;
-                assets[asset].totalWithdrawals -= withdrawals;
-            }
-        }
+        assets[asset].positions[ilk].deposits += shares;
+        assets[asset].totalDeposits += shares;
 
         emit Deposit(ilk, asset, amount);
     }
@@ -118,21 +106,22 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
     /// @inheritdoc IAllocatorConduit
     function withdraw(bytes32 ilk, address asset, address destination, uint256 amount) external ilkAuth(ilk) {
         // Normally you should update local state first for re-entrancy, but we need an update-to-date liquidity index for that
-        pool.withdraw(asset, amount, destination);
+        amount = pool.withdraw(asset, amount, destination);
 
         // Convert asset amount to shares
-        uint256 liquidityIndex = pool.getReserveData(asset).liquidityIndex;
-        amount = amount * RAY / liquidityIndex;
+        uint256 shares = amount * RAY / pool.getReserveData(asset).liquidityIndex;
 
         uint256 withdrawals = assets[asset].positions[ilk].withdrawals;
-        assets[asset].positions[ilk].deposits -= amount;
-        assets[asset].totalDeposits -= amount;
-        if (amount <= withdrawals) {
-            assets[asset].positions[ilk].withdrawals -= amount;
-            assets[asset].totalWithdrawals -= amount;
-        } else {
-            assets[asset].positions[ilk].withdrawals = 0;
-            assets[asset].totalWithdrawals -= withdrawals;
+        assets[asset].positions[ilk].deposits -= shares;
+        assets[asset].totalDeposits -= shares;
+        if (withdrawals > 0) {
+            if (shares <= withdrawals) {
+                assets[asset].positions[ilk].withdrawals -= shares;
+                assets[asset].totalWithdrawals -= shares;
+            } else {
+                assets[asset].positions[ilk].withdrawals = 0;
+                assets[asset].totalWithdrawals -= withdrawals;
+            }
         }
 
         emit Withdraw(ilk, asset, destination, amount);
@@ -160,13 +149,14 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
 
         // Convert asset amount to shares
         // Please note the interest conversion may be slightly out of date as there is no index update
-        amount = amount * RAY / pool.getReserveData(asset).liquidityIndex;
+        // This is fine though because we are not translating this into exact withdrawals anyways
+        uint256 shares = amount * RAY / pool.getReserveData(asset).liquidityIndex;
 
         uint256 deposits = assets[asset].positions[ilk].deposits;
-        require(amount <= deposits, "SparkConduit/amount-too-large");
+        require(shares <= deposits, "SparkConduit/shares-too-large");
         uint256 prevWithdrawals = assets[asset].positions[ilk].withdrawals;
-        assets[asset].positions[ilk].withdrawals = amount;
-        assets[asset].totalWithdrawals = assets[asset].totalWithdrawals + amount - prevWithdrawals;
+        assets[asset].positions[ilk].withdrawals = shares;
+        assets[asset].totalWithdrawals = assets[asset].totalWithdrawals + shares - prevWithdrawals;
 
         emit RequestFunds(ilk, asset, amount);
     }
@@ -212,10 +202,11 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
 
     /// @inheritdoc ISparkConduit
     function getAssetData(address asset) external view returns (bool _enabled, uint256 _totalDeposits, uint256 _totalWithdrawals) {
+        uint256 liquidityIndex = pool.getReserveData(asset).liquidityIndex;
         return (
             assets[asset].enabled,
-            assets[asset].totalDeposits,
-            assets[asset].totalWithdrawals
+            assets[asset].totalDeposits * liquidityIndex / RAY,
+            assets[asset].totalWithdrawals * liquidityIndex / RAY
         );
     }
 
@@ -226,31 +217,32 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
 
     /// @inheritdoc ISparkConduit
     function getTotalDeposits(address asset) external view returns (uint256) {
-        return assets[asset].totalDeposits;
+        return assets[asset].totalDeposits * pool.getReserveData(asset).liquidityIndex / RAY;
     }
 
     /// @inheritdoc ISparkConduit
     function getTotalWithdrawals(address asset) external view returns (uint256) {
-        return assets[asset].totalWithdrawals;
+        return assets[asset].totalWithdrawals * pool.getReserveData(asset).liquidityIndex / RAY;
     }
 
     /// @inheritdoc ISparkConduit
     function getPosition(bytes32 ilk, address asset) external view returns (uint256 _deposits, uint256 _withdrawals) {
+        uint256 liquidityIndex = pool.getReserveData(asset).liquidityIndex;
         Position memory position = assets[asset].positions[ilk];
         return (
-            position.deposits,
-            position.withdrawals
+            position.deposits * liquidityIndex / RAY,
+            position.withdrawals * liquidityIndex / RAY
         );
     }
 
     /// @inheritdoc ISparkConduit
     function getDeposits(bytes32 ilk, address asset) external view returns (uint256) {
-        return assets[asset].positions[ilk].deposits;
+        return assets[asset].positions[ilk].deposits * pool.getReserveData(asset).liquidityIndex / RAY;
     }
 
     /// @inheritdoc ISparkConduit
     function getWithdrawals(bytes32 ilk, address asset) external view returns (uint256) {
-        return assets[asset].positions[ilk].withdrawals;
+        return assets[asset].positions[ilk].withdrawals * pool.getReserveData(asset).liquidityIndex / RAY;
     }
 
 }
