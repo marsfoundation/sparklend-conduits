@@ -493,6 +493,34 @@ contract SparkConduitTest is DssTest {
         conduit.requestFunds(ILK, address(token), 150 ether);
     }
 
+    function test_cancelFundRequest() public {
+        conduit.setAssetEnabled(address(token), true);
+        pool.setLiquidityIndex(200_00 * RBPS);
+        conduit.deposit(ILK, address(token), 100 ether);
+        deal(address(token), address(atoken), 0);
+        conduit.requestFunds(ILK, address(token), 50 ether);
+
+        assertEq(conduit.getWithdrawals(ILK, address(token)), 50 ether);
+        assertEq(conduit.getTotalWithdrawals(address(token)), 50 ether);
+
+        vm.expectEmit();
+        emit CancelFundRequest(ILK, address(token));
+        conduit.cancelFundRequest(ILK, address(token));
+
+        assertEq(conduit.getWithdrawals(ILK, address(token)), 0);
+        assertEq(conduit.getTotalWithdrawals(address(token)), 0);
+    }
+
+    function test_cancelFundRequest_revert_no_withdrawal() public {
+        conduit.setAssetEnabled(address(token), true);
+        pool.setLiquidityIndex(200_00 * RBPS);
+        conduit.deposit(ILK, address(token), 100 ether);
+        deal(address(token), address(atoken), 0);
+
+        vm.expectRevert("SparkConduit/no-active-fund-requests");
+        conduit.cancelFundRequest(ILK2, address(token));
+    }
+
     function test_getInterestData() public {
         conduit.setSubsidySpread(50 * RBPS);
         pot.setDSR((350 * RBPS) / SECONDS_PER_YEAR + RAY);
