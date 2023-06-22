@@ -107,8 +107,11 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
 
     /// @inheritdoc IAllocatorConduit
     function withdraw(bytes32 ilk, address asset, address destination, uint256 maxAmount) external ilkAuth(ilk) returns (uint256 amount) {
+        uint256 liquidityAvailable = IERC20(asset).balanceOf(pool.getReserveData(asset).aTokenAddress);
+        amount = liquidityAvailable < maxAmount ? liquidityAvailable : maxAmount;
+
         // Normally you should update local state first for re-entrancy, but we need an update-to-date liquidity index for that
-        amount = pool.withdraw(asset, maxAmount, address(this));
+        amount = pool.withdraw(asset, amount, address(this));
 
         // Convert asset amount to shares
         uint256 liquidityIndex = pool.getReserveData(asset).liquidityIndex;
@@ -166,7 +169,6 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
     function requestFunds(bytes32 ilk, address asset, uint256 amount) external ilkAuth(ilk) {
         DataTypes.ReserveData memory reserveData = pool.getReserveData(asset);
         uint256 liquidityAvailable = IERC20(asset).balanceOf(reserveData.aTokenAddress);
-        // TODO Confirm that we can get the liquidity to exact zero -- may be sometimes impossible due to rounding
         require(liquidityAvailable == 0, "SparkConduit/must-withdraw-all-available-liquidity-first");
 
         // Convert asset amount to shares

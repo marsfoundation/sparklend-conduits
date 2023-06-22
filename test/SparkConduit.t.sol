@@ -370,6 +370,29 @@ contract SparkConduitTest is DssTest {
         assertEq(conduit.getTotalWithdrawals(address(token)), 0 ether);
     }
 
+    function test_withdraw_all_limited_liquidity() public {
+        conduit.setAssetEnabled(address(token), true);
+        pool.setLiquidityIndex(200_00 * RBPS);
+        conduit.deposit(ILK, address(token), 100 ether);
+        deal(address(token), address(atoken), 50 ether);
+
+        assertEq(token.balanceOf(address(atoken)), 50 ether);
+        assertEq(atoken.balanceOf(address(conduit)), 100 ether);
+        assertEq(token.balanceOf(TEST_ADDRESS), 0);
+        assertEq(conduit.getDeposits(ILK, address(token)), 100 ether);
+        assertEq(conduit.getTotalDeposits(address(token)), 100 ether);
+
+        vm.expectEmit();
+        emit Withdraw(ILK, address(token), TEST_ADDRESS, 50 ether);
+        assertEq(conduit.withdraw(ILK, address(token), TEST_ADDRESS, type(uint256).max), 50 ether);
+
+        assertEq(token.balanceOf(address(atoken)), 0);
+        assertEq(atoken.balanceOf(address(conduit)), 50 ether);
+        assertEq(token.balanceOf(TEST_ADDRESS), 50 ether);
+        assertEq(conduit.getDeposits(ILK, address(token)), 50 ether);
+        assertEq(conduit.getTotalDeposits(address(token)), 50 ether);
+    }
+
     function test_maxDeposit() public {
         assertEq(conduit.maxDeposit(ILK, address(token)), type(uint256).max);
     }
