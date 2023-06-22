@@ -169,7 +169,7 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
     function requestFunds(bytes32 ilk, address asset, uint256 amount) external ilkAuth(ilk) {
         DataTypes.ReserveData memory reserveData = pool.getReserveData(asset);
         uint256 liquidityAvailable = IERC20(asset).balanceOf(reserveData.aTokenAddress);
-        require(liquidityAvailable == 0, "SparkConduit/must-withdraw-all-available-liquidity-first");
+        require(liquidityAvailable == 0, "SparkConduit/non-zero-liquidity");
 
         // Convert asset amount to shares
         // Please note the interest conversion may be slightly out of date as there is no index update
@@ -177,7 +177,7 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
         uint256 shares = amount.rayDiv(pool.getReserveData(asset).liquidityIndex);
 
         uint256 deposits = assets[asset].positions[ilk].deposits;
-        require(shares <= deposits, "SparkConduit/shares-too-large");
+        require(shares <= deposits, "SparkConduit/amount-too-large");
         uint256 prevWithdrawals = assets[asset].positions[ilk].withdrawals;
         assets[asset].positions[ilk].withdrawals = shares;
         assets[asset].totalWithdrawals = assets[asset].totalWithdrawals + shares - prevWithdrawals;

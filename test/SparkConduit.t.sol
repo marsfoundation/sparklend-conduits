@@ -416,9 +416,16 @@ contract SparkConduitTest is DssTest {
         conduit.setAssetEnabled(address(token), true);
         pool.setLiquidityIndex(200_00 * RBPS);
         conduit.deposit(ILK, address(token), 100 ether);
-        conduit.deposit(ILK2, address(token), 100 ether);
-        deal(address(token), address(atoken), 0);
+        conduit.deposit(ILK2, address(token), 50 ether);
+        deal(address(token), address(atoken), 50 ether);
+        assertEq(conduit.withdraw(ILK, address(token), TEST_ADDRESS, type(uint256).max), 50 ether);
 
+        assertEq(token.balanceOf(address(atoken)), 0);
+        assertEq(atoken.balanceOf(address(conduit)), 100 ether);
+        assertEq(token.balanceOf(TEST_ADDRESS), 50 ether);
+        assertEq(conduit.getDeposits(ILK, address(token)), 50 ether);
+        assertEq(conduit.getDeposits(ILK2, address(token)), 50 ether);
+        assertEq(conduit.getTotalDeposits(address(token)), 100 ether);
         assertEq(conduit.getWithdrawals(ILK, address(token)), 0);
         assertEq(conduit.getWithdrawals(ILK2, address(token)), 0);
         assertEq(conduit.getTotalWithdrawals(address(token)), 0);
@@ -427,26 +434,63 @@ contract SparkConduitTest is DssTest {
         emit RequestFunds(ILK, address(token), 50 ether);
         conduit.requestFunds(ILK, address(token), 50 ether);
 
+        assertEq(token.balanceOf(address(atoken)), 0);
+        assertEq(atoken.balanceOf(address(conduit)), 100 ether);
+        assertEq(token.balanceOf(TEST_ADDRESS), 50 ether);
+        assertEq(conduit.getDeposits(ILK, address(token)), 50 ether);
+        assertEq(conduit.getDeposits(ILK2, address(token)), 50 ether);
+        assertEq(conduit.getTotalDeposits(address(token)), 100 ether);
         assertEq(conduit.getWithdrawals(ILK, address(token)), 50 ether);
         assertEq(conduit.getWithdrawals(ILK2, address(token)), 0);
         assertEq(conduit.getTotalWithdrawals(address(token)), 50 ether);
 
+        // Subsequent request should replace instead of be additive
         vm.expectEmit();
-        emit RequestFunds(ILK2, address(token), 25 ether);
-        conduit.requestFunds(ILK2, address(token), 25 ether);
+        emit RequestFunds(ILK, address(token), 25 ether);
+        conduit.requestFunds(ILK, address(token), 25 ether);
 
-        assertEq(conduit.getWithdrawals(ILK, address(token)), 50 ether);
-        assertEq(conduit.getWithdrawals(ILK2, address(token)), 25 ether);
-        assertEq(conduit.getTotalWithdrawals(address(token)), 75 ether);
+        assertEq(token.balanceOf(address(atoken)), 0);
+        assertEq(atoken.balanceOf(address(conduit)), 100 ether);
+        assertEq(token.balanceOf(TEST_ADDRESS), 50 ether);
+        assertEq(conduit.getDeposits(ILK, address(token)), 50 ether);
+        assertEq(conduit.getDeposits(ILK2, address(token)), 50 ether);
+        assertEq(conduit.getTotalDeposits(address(token)), 100 ether);
+        assertEq(conduit.getWithdrawals(ILK, address(token)), 25 ether);
+        assertEq(conduit.getWithdrawals(ILK2, address(token)), 0);
+        assertEq(conduit.getTotalWithdrawals(address(token)), 25 ether);
 
-        // This should override instead of stack
         vm.expectEmit();
-        emit RequestFunds(ILK, address(token), 10 ether);
-        conduit.requestFunds(ILK, address(token), 10 ether);
+        emit RequestFunds(ILK2, address(token), 40 ether);
+        conduit.requestFunds(ILK2, address(token), 40 ether);
 
-        assertEq(conduit.getWithdrawals(ILK, address(token)), 10 ether);
-        assertEq(conduit.getWithdrawals(ILK2, address(token)), 25 ether);
-        assertEq(conduit.getTotalWithdrawals(address(token)), 35 ether);
+        assertEq(token.balanceOf(address(atoken)), 0);
+        assertEq(atoken.balanceOf(address(conduit)), 100 ether);
+        assertEq(token.balanceOf(TEST_ADDRESS), 50 ether);
+        assertEq(conduit.getDeposits(ILK, address(token)), 50 ether);
+        assertEq(conduit.getDeposits(ILK2, address(token)), 50 ether);
+        assertEq(conduit.getTotalDeposits(address(token)), 100 ether);
+        assertEq(conduit.getWithdrawals(ILK, address(token)), 25 ether);
+        assertEq(conduit.getWithdrawals(ILK2, address(token)), 40 ether);
+        assertEq(conduit.getTotalWithdrawals(address(token)), 65 ether);
+    }
+
+    function test_requestFunds_revert_non_zero_liquidity() public {
+        conduit.setAssetEnabled(address(token), true);
+        pool.setLiquidityIndex(200_00 * RBPS);
+        conduit.deposit(ILK, address(token), 100 ether);
+
+        vm.expectRevert("SparkConduit/non-zero-liquidity");
+        conduit.requestFunds(ILK, address(token), 50 ether);
+    }
+
+    function test_requestFunds_revert_amount_too_large() public {
+        conduit.setAssetEnabled(address(token), true);
+        pool.setLiquidityIndex(200_00 * RBPS);
+        conduit.deposit(ILK, address(token), 100 ether);
+        deal(address(token), address(atoken), 0);
+
+        vm.expectRevert("SparkConduit/amount-too-large");
+        conduit.requestFunds(ILK, address(token), 150 ether);
     }
 
     function test_getInterestData() public {
