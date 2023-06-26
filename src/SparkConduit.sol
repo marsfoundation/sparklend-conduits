@@ -52,6 +52,8 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
 
     /// @inheritdoc ISparkConduit
     uint256 public subsidySpread;
+    /// @inheritdoc ISparkConduit
+    uint256 public maxLiquidityBuffer;
 
     modifier auth() {
         require(wards[msg.sender] == 1, "SparkConduit/not-authorized");
@@ -92,6 +94,7 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
     function deposit(bytes32 ilk, address asset, uint256 amount) external ilkAuth(ilk) {
         require(assets[asset].enabled, "SparkConduit/asset-disabled");
         require(assets[asset].positions[ilk].withdrawals == 0, "SparkConduit/no-deposit-with-pending-withdrawals");
+        require(amount <= maxDeposit(ilk, asset), "SparkConduit/max-deposit-exceeded");
         require(IERC20(asset).transferFrom(msg.sender, address(this), amount),  "SparkConduit/transfer-failed");
         
         pool.supply(asset, amount, address(this), 0);
@@ -153,8 +156,21 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
     }
 
     /// @inheritdoc IAllocatorConduit
-    function maxDeposit(bytes32, address) external pure returns (uint256 maxDeposit_) {
-        maxDeposit_ = type(uint256).max;   // Purposefully ignoring any potental supply cap limits
+    function maxDeposit(bytes32, address asset) public view returns (uint256 maxDeposit_) {
+        // Note: Purposefully ignoring any potental supply cap limits on Spark
+        uint256 _maxLiquidityBuffer = maxLiquidityBuffer;
+        if (_maxLiquidityBuffer > 0) {
+            uint256 liquidityAvailable = IERC20(asset).balanceOf(pool.getReserveData(asset).aTokenAddress);
+            if (liquidityAvailable < _maxLiquidityBuffer) {
+                unchecked {
+                    return _maxLiquidityBuffer - liquidityAvailable;
+                }
+            } else {
+                return 0;
+            }
+        } else {
+            return type(uint256).max;
+        }
     }
 
     /// @inheritdoc IAllocatorConduit
@@ -213,7 +229,14 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
     function setSubsidySpread(uint256 _subsidySpread) external auth {
         subsidySpread = _subsidySpread;
 
-        emit SetSubsidySpread(subsidySpread);
+        emit SetSubsidySpread(_subsidySpread);
+    }
+
+    /// @inheritdoc ISparkConduit
+    function setMaxLiquidityBuffer(uint256 _maxLiquidityBuffer) external auth {
+        maxLiquidityBuffer = _maxLiquidityBuffer;
+
+        emit SetMaxLiquidityBuffer(_maxLiquidityBuffer);
     }
 
     /// @inheritdoc ISparkConduit

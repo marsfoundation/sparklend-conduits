@@ -129,6 +129,7 @@ contract SparkConduitTest is DssTest {
     event RequestFunds(bytes32 indexed ilk, address indexed asset, uint256 amount);
     event CancelFundRequest(bytes32 indexed ilk, address indexed asset);
     event SetSubsidySpread(uint256 subsidySpread);
+    event SetMaxLiquidityBuffer(uint256 maxLiquidityBuffer);
     event SetAssetEnabled(address indexed asset, bool enabled);
 
     function setUp() public {
@@ -213,6 +214,14 @@ contract SparkConduitTest is DssTest {
         conduit.requestFunds(ILK, address(token), 50 ether);
 
         vm.expectRevert("SparkConduit/no-deposit-with-pending-withdrawals");
+        conduit.deposit(ILK, address(token), 100 ether);
+    }
+
+    function test_deposit_revert_above_max_deposit() public {
+        conduit.setAssetEnabled(address(token), true);
+        conduit.setMaxLiquidityBuffer(50 ether);
+
+        vm.expectRevert("SparkConduit/max-deposit-exceeded");
         conduit.deposit(ILK, address(token), 100 ether);
     }
 
@@ -397,6 +406,22 @@ contract SparkConduitTest is DssTest {
         assertEq(conduit.maxDeposit(ILK, address(token)), type(uint256).max);
     }
 
+    function test_maxDeposit_maxLiquidityBuffer_is_set() public {
+        assertEq(conduit.maxDeposit(ILK, address(token)), type(uint256).max);
+
+        conduit.setMaxLiquidityBuffer(5_000_000 ether);
+
+        assertEq(conduit.maxDeposit(ILK, address(token)), 5_000_000 ether);
+
+        deal(address(token), address(atoken), 1_000_000 ether);
+
+        assertEq(conduit.maxDeposit(ILK, address(token)), 4_000_000 ether);
+
+        deal(address(token), address(atoken), 20_000_000 ether);
+
+        assertEq(conduit.maxDeposit(ILK, address(token)), 0);
+    }
+
     function test_maxWithdraw() public {
         conduit.setAssetEnabled(address(token), true);
         pool.setLiquidityIndex(200_00 * RBPS);
@@ -543,6 +568,14 @@ contract SparkConduitTest is DssTest {
         emit SetSubsidySpread(50 * RBPS);
         conduit.setSubsidySpread(50 * RBPS);
         assertEq(conduit.subsidySpread(), 50 * RBPS);
+    }
+
+    function test_setMaxLiquidityBuffer() public {
+        assertEq(conduit.maxLiquidityBuffer(), 0);
+        vm.expectEmit();
+        emit SetMaxLiquidityBuffer(5_000_000 ether);
+        conduit.setMaxLiquidityBuffer(5_000_000 ether);
+        assertEq(conduit.maxLiquidityBuffer(), 5_000_000 ether);
     }
 
     function test_setAssetEnabled() public {
