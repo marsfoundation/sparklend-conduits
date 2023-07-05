@@ -67,6 +67,12 @@ interface ISparkConduit is IAllocatorConduit, IAuth {
     function roles() external view returns (address);
 
     /**
+     * @notice Returns the registry contract
+     * @return The address representing the registry
+     */
+    function registry() external view returns (address);
+
+    /**
      * @notice Returns the subsidy spread associated with the spark conduit
      * @return The value of the subsidy spread
      */

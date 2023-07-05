@@ -18,6 +18,10 @@ interface RolesLike {
     function canCall(bytes32, address, address, bytes4) external view returns (bool);
 }
 
+interface RegistryLike {
+    function buffers(bytes32 ilk) external view returns (address buffer);
+}
+
 contract SparkConduit is ISparkConduit, IInterestRateDataSource {
 
     using WadRayMath for uint256;
@@ -49,6 +53,8 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
     address public immutable pot;
     /// @inheritdoc ISparkConduit
     address public immutable roles;
+    /// @inheritdoc ISparkConduit
+    address public immutable registry;
 
     /// @inheritdoc ISparkConduit
     uint256 public subsidySpread;
@@ -68,11 +74,13 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
     constructor(
         IPool _pool,
         address _pot,
-        address _roles
+        address _roles,
+        address _registry
     ) {
         pool  = _pool;
         pot   = _pot;
         roles = _roles;
+        registry = _registry;
 
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
@@ -95,7 +103,8 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
         require(assets[asset].enabled, "SparkConduit/asset-disabled");
         require(assets[asset].positions[ilk].withdrawals == 0, "SparkConduit/no-deposit-with-pending-withdrawals");
         require(amount <= maxDeposit(ilk, asset), "SparkConduit/max-deposit-exceeded");
-        require(IERC20(asset).transferFrom(msg.sender, address(this), amount),  "SparkConduit/transfer-failed");
+        address source = RegistryLike(registry).buffers(ilk);
+        require(IERC20(asset).transferFrom(source, address(this), amount),  "SparkConduit/transfer-failed");
         
         pool.supply(asset, amount, address(this), 0);
 
@@ -105,11 +114,11 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
         assets[asset].positions[ilk].deposits += shares;
         assets[asset].totalDeposits += shares;
 
-        emit Deposit(ilk, asset, amount);
+        emit Deposit(ilk, asset, source, amount);
     }
 
     /// @inheritdoc IAllocatorConduit
-    function withdraw(bytes32 ilk, address asset, address destination, uint256 maxAmount) external ilkAuth(ilk) returns (uint256 amount) {
+    function withdraw(bytes32 ilk, address asset, uint256 maxAmount) external ilkAuth(ilk) returns (uint256 amount) {
         uint256 liquidityAvailable = IERC20(asset).balanceOf(pool.getReserveData(asset).aTokenAddress);
         amount = liquidityAvailable < maxAmount ? liquidityAvailable : maxAmount;
 
@@ -135,9 +144,6 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
             // Return the excess to the pool as it's other user's deposits
             // Round against the user that is withdrawing
             pool.supply(asset, toReturn, address(this), 0);
-            IERC20(asset).transfer(destination, amount);
-        } else {
-            IERC20(asset).transfer(destination, amount);
         }
 
         assets[asset].positions[ilk].deposits -= shares;
@@ -151,6 +157,10 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
                 assets[asset].totalWithdrawals -= withdrawals;
             }
         }
+
+        address destination = RegistryLike(registry).buffers(ilk);
+
+        IERC20(asset).transfer(destination, amount);
 
         emit Withdraw(ilk, asset, destination, amount);
     }
