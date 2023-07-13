@@ -48,7 +48,6 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     /// @inheritdoc ISparkConduit
     uint256 public maxLiquidityBuffer;
 
-    // TODO - should these be immutable?
     /// @inheritdoc ISparkConduit
     IPool   public immutable pool;
     /// @inheritdoc ISparkConduit
