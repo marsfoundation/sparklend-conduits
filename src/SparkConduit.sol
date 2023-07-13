@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.13;
 
+import { UpgradeableProxied } from "upgradeable-proxy/UpgradeableProxied.sol";
+
 import { IPool } from 'aave-v3-core/contracts/interfaces/IPool.sol';
 import { DataTypes } from 'aave-v3-core/contracts/protocol/libraries/types/DataTypes.sol';
 import { WadRayMath } from 'aave-v3-core/contracts/protocol/libraries/math/WadRayMath.sol';
 import { IERC20 } from 'aave-v3-core/contracts/dependencies/openzeppelin/contracts/IERC20.sol';
 
-import { IAuth } from './interfaces/IAuth.sol';
 import { ISparkConduit, IAllocatorConduit } from './interfaces/ISparkConduit.sol';
 import { IInterestRateDataSource } from './interfaces/IInterestRateDataSource.sol';
 
@@ -22,7 +23,7 @@ interface RegistryLike {
     function buffers(bytes32 ilk) external view returns (address buffer);
 }
 
-contract SparkConduit is ISparkConduit, IInterestRateDataSource {
+contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSource {
 
     using WadRayMath for uint256;
 
@@ -40,13 +41,14 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
         mapping (bytes32 => Position) positions;
     }
 
-    uint256 private constant RAY = 10 ** 27;
-    uint256 private constant SECONDS_PER_YEAR = 365 days;
-
-    /// @inheritdoc IAuth
-    mapping(address => uint256)   public  wards;
     mapping(address => AssetData) private assets;
 
+    /// @inheritdoc ISparkConduit
+    uint256 public subsidySpread;
+    /// @inheritdoc ISparkConduit
+    uint256 public maxLiquidityBuffer;
+
+    // TODO - should these be immutable?
     /// @inheritdoc ISparkConduit
     IPool   public immutable pool;
     /// @inheritdoc ISparkConduit
@@ -56,10 +58,8 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
     /// @inheritdoc ISparkConduit
     address public immutable registry;
 
-    /// @inheritdoc ISparkConduit
-    uint256 public subsidySpread;
-    /// @inheritdoc ISparkConduit
-    uint256 public maxLiquidityBuffer;
+    uint256 private constant RAY = 10 ** 27;
+    uint256 private constant SECONDS_PER_YEAR = 365 days;
 
     modifier auth() {
         require(wards[msg.sender] == 1, "SparkConduit/not-authorized");
@@ -81,21 +81,6 @@ contract SparkConduit is ISparkConduit, IInterestRateDataSource {
         pot   = _pot;
         roles = _roles;
         registry = _registry;
-
-        wards[msg.sender] = 1;
-        emit Rely(msg.sender);
-    }
-
-    /// @inheritdoc IAuth
-    function rely(address usr) external auth {
-        wards[usr] = 1;
-        emit Rely(usr);
-    }
-
-    /// @inheritdoc IAuth
-    function deny(address usr) external auth {
-        wards[usr] = 0;
-        emit Deny(usr);
     }
 
     /// @inheritdoc IAllocatorConduit

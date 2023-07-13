@@ -5,13 +5,11 @@ import { IAllocatorConduit } from 'dss-allocator/src/interfaces/IAllocatorCondui
 import { IPool } from 'aave-v3-core/contracts/interfaces/IPool.sol';
 import { IERC20 } from 'aave-v3-core/contracts/dependencies/openzeppelin/contracts/IERC20.sol';
 
-import { IAuth } from './IAuth.sol';
-
 /**
  * @title ISparkConduit
- * @notice This interface extends the IAllocatorConduit and IAuth interfaces and manages asset and fund operations
+ * @notice This interface extends the IAllocatorConduit interfaces and manages asset and fund operations
  */
-interface ISparkConduit is IAllocatorConduit, IAuth {
+interface ISparkConduit is IAllocatorConduit {
 
     /**
      * @notice Event emitted when a new fund request is made
