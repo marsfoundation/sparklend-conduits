@@ -13,3 +13,6 @@
 [submodule "lib/mock-erc20"]
 	path = lib/mock-erc20
 	url = https://github.com/marsfoundation/mock-erc20
+[submodule "lib/upgradeable-proxy"]
+	path = lib/upgradeable-proxy
+	url = https://github.com/marsfoundation/upgradeable-proxy
