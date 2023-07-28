@@ -41,21 +41,25 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         mapping (bytes32 => Position) positions;
     }
 
+    // -- Storage --
+
     mapping(address => AssetData) private assets;
 
+    /// @inheritdoc ISparkConduit
+    address public roles;
+    /// @inheritdoc ISparkConduit
+    address public registry;
     /// @inheritdoc ISparkConduit
     uint256 public subsidySpread;
     /// @inheritdoc ISparkConduit
     uint256 public maxLiquidityBuffer;
 
+    // -- Immutable/constant --
+
     /// @inheritdoc ISparkConduit
     IPool   public immutable pool;
     /// @inheritdoc ISparkConduit
     address public immutable pot;
-    /// @inheritdoc ISparkConduit
-    address public immutable roles;
-    /// @inheritdoc ISparkConduit
-    address public immutable registry;
 
     uint256 private constant RAY = 10 ** 27;
     uint256 private constant SECONDS_PER_YEAR = 365 days;
@@ -72,14 +76,10 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
 
     constructor(
         IPool _pool,
-        address _pot,
-        address _roles,
-        address _registry
+        address _pot
     ) {
         pool  = _pool;
         pot   = _pot;
-        roles = _roles;
-        registry = _registry;
     }
 
     /// @inheritdoc IAllocatorConduit
@@ -217,6 +217,20 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
             currentDebt: uint128(deposits),
             targetDebt: uint128(deposits - assets[asset].totalWithdrawals)
         });
+    }
+
+    /// @inheritdoc ISparkConduit
+    function setRoles(address _roles) external auth {
+        roles = _roles;
+
+        emit SetRoles(_roles);
+    }
+
+    /// @inheritdoc ISparkConduit
+    function setRegistry(address _registry) external auth {
+        registry = _registry;
+
+        emit SetRegistry(_registry);
     }
 
     /// @inheritdoc ISparkConduit

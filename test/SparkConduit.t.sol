@@ -134,6 +134,8 @@ contract SparkConduitTest is DssTest {
     event Withdraw(bytes32 indexed ilk, address indexed asset, address destination, uint256 amount);
     event RequestFunds(bytes32 indexed ilk, address indexed asset, uint256 amount);
     event CancelFundRequest(bytes32 indexed ilk, address indexed asset);
+    event SetRoles(address roles);
+    event SetRegistry(address registry);
     event SetSubsidySpread(uint256 subsidySpread);
     event SetMaxLiquidityBuffer(uint256 maxLiquidityBuffer);
     event SetAssetEnabled(address indexed asset, bool enabled);
@@ -150,12 +152,12 @@ contract SparkConduitTest is DssTest {
         UpgradeableProxy proxy = new UpgradeableProxy();
         SparkConduit impl = new SparkConduit(
             IPool(address(pool)),
-            address(pot),
-            address(roles),
-            address(registry)
+            address(pot)
         );
         proxy.setImplementation(address(impl));
         conduit = SparkConduit(address(proxy));
+        conduit.setRoles(address(roles));
+        conduit.setRegistry(address(registry));
 
         // Mint us some of the token and approve the conduit
         token.mint(address(this), 1000 ether);
@@ -165,8 +167,6 @@ contract SparkConduitTest is DssTest {
     function test_constructor() public {
         assertEq(address(conduit.pool()), address(pool));
         assertEq(conduit.pot(), address(pot));
-        assertEq(conduit.roles(), address(roles));
-        assertEq(conduit.registry(), address(registry));
         assertEq(conduit.wards(address(this)), 1);
     }
 
@@ -174,6 +174,8 @@ contract SparkConduitTest is DssTest {
         UpgradeableProxy(address(conduit)).deny(address(this));
 
         checkModifier(address(conduit), "SparkConduit/not-authorized", [
+            SparkConduit.setRoles.selector,
+            SparkConduit.setRegistry.selector,
             SparkConduit.setSubsidySpread.selector,
             SparkConduit.setAssetEnabled.selector
         ]);
@@ -575,6 +577,26 @@ contract SparkConduitTest is DssTest {
         assertApproxEqRel(data.subsidyRate, 350 * RBPS, WBPS);
         assertEq(data.currentDebt, 100 ether);
         assertEq(data.targetDebt, 50 ether);
+    }
+
+    function test_setRoles() public {
+        address newRoles = makeAddr("newRoles");
+
+        assertEq(conduit.roles(), address(roles));
+        vm.expectEmit();
+        emit SetRoles(newRoles);
+        conduit.setRoles(newRoles);
+        assertEq(conduit.roles(), newRoles);
+    }
+
+    function test_setRegistry() public {
+        address newRegistry = makeAddr("newRegistry");
+
+        assertEq(conduit.registry(), address(registry));
+        vm.expectEmit();
+        emit SetRegistry(newRegistry);
+        conduit.setRegistry(newRegistry);
+        assertEq(conduit.registry(), newRegistry);
     }
 
     function test_setSubsidySpread() public {

@@ -27,6 +27,18 @@ interface ISparkConduit is IAllocatorConduit {
     event CancelFundRequest(bytes32 indexed ilk, address indexed asset);
 
     /**
+     * @notice Event emitted when roles address is set
+     * @param roles The new roles address
+     */
+    event SetRoles(address roles);
+
+    /**
+     * @notice Event emitted when registry address is set
+     * @param registry The new registry address
+     */
+    event SetRegistry(address registry);
+
+    /**
      * @notice Event emitted when subsidy spread is set
      * @param subsidySpread The new subsidy spread value
      */
@@ -97,6 +109,18 @@ interface ISparkConduit is IAllocatorConduit {
      * @param asset The asset whose fund request is to be cancelled
      */
     function cancelFundRequest(bytes32 ilk, address asset) external;
+
+    /**
+     * @notice Sets the roles address
+     * @param _roles The new roles address
+     */
+    function setRoles(address _roles) external;
+
+    /**
+     * @notice Sets the registry address
+     * @param _registry The new registry address
+     */
+    function setRegistry(address _registry) external;
 
     /**
      * @notice Sets the subsidy spread
