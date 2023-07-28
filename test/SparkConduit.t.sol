@@ -3,11 +3,11 @@ pragma solidity ^0.8.0;
 
 import "dss-test/DssTest.sol";
 import { MockERC20 } from 'mock-erc20/src/MockERC20.sol';
+import { UpgradeableProxy } from "upgradeable-proxy/UpgradeableProxy.sol";
 
 import {
     SparkConduit,
     ISparkConduit,
-    IAuth,
     IPool,
     IInterestRateDataSource,
     IERC20,
@@ -147,14 +147,15 @@ contract SparkConduitTest is DssTest {
         token    = new MockERC20('Token', 'TKN', 18);
         atoken   = pool.atoken();
 
-        vm.expectEmit();
-        emit Rely(address(this));
-        conduit = new SparkConduit(
+        UpgradeableProxy proxy = new UpgradeableProxy();
+        SparkConduit impl = new SparkConduit(
             IPool(address(pool)),
             address(pot),
             address(roles),
             address(registry)
         );
+        proxy.setImplementation(address(impl));
+        conduit = SparkConduit(address(proxy));
 
         // Mint us some of the token and approve the conduit
         token.mint(address(this), 1000 ether);
@@ -169,12 +170,8 @@ contract SparkConduitTest is DssTest {
         assertEq(conduit.wards(address(this)), 1);
     }
 
-    function test_auth() public {
-        checkAuth(address(conduit), "SparkConduit");
-    }
-
     function test_authModifiers() public {
-        conduit.deny(address(this));
+        UpgradeableProxy(address(conduit)).deny(address(this));
 
         checkModifier(address(conduit), "SparkConduit/not-authorized", [
             SparkConduit.setSubsidySpread.selector,
