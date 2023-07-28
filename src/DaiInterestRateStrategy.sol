@@ -56,10 +56,10 @@ contract DaiInterestRateStrategy is IReserveInterestRateStrategy {
     uint256 private constant WAD = 10 ** 18;
     uint256 private constant RAY = 10 ** 27;
 
-    address public immutable                 asset;
+    address                 public immutable asset;
     IInterestRateDataSource public immutable dataSource;
-    uint256 public immutable                 spread;
-    uint256 public immutable                 maxRate;
+    uint256                 public immutable spread;
+    uint256                 public immutable maxRate;
 
     Slot0 private _slot0;
 

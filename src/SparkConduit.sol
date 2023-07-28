@@ -51,8 +51,6 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     address public registry;
     /// @inheritdoc ISparkConduit
     uint256 public subsidySpread;
-    /// @inheritdoc ISparkConduit
-    uint256 public maxLiquidityBuffer;
 
     // -- Immutable/constant --
 
@@ -74,12 +72,9 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         _;
     }
 
-    constructor(
-        IPool _pool,
-        address _pot
-    ) {
-        pool  = _pool;
-        pot   = _pot;
+    constructor(IPool  _pool, address _pot) {
+        pool = _pool;
+        pot  = _pot;
     }
 
     /// @inheritdoc IAllocatorConduit
@@ -151,19 +146,11 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
 
     /// @inheritdoc IAllocatorConduit
     function maxDeposit(bytes32, address asset) public view returns (uint256 maxDeposit_) {
-        // Note: Purposefully ignoring any potental supply cap limits on Spark
-        uint256 _maxLiquidityBuffer = maxLiquidityBuffer;
-        if (_maxLiquidityBuffer > 0) {
-            uint256 liquidityAvailable = IERC20(asset).balanceOf(pool.getReserveData(asset).aTokenAddress);
-            if (liquidityAvailable < _maxLiquidityBuffer) {
-                unchecked {
-                    return _maxLiquidityBuffer - liquidityAvailable;
-                }
-            } else {
-                return 0;
-            }
-        } else {
+        if (assets[asset].enabled) {
+            // Note: Purposefully ignoring any potental supply cap limits on Spark
             return type(uint256).max;
+        } else {
+            return 0;
         }
     }
 
@@ -238,13 +225,6 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         subsidySpread = _subsidySpread;
 
         emit SetSubsidySpread(_subsidySpread);
-    }
-
-    /// @inheritdoc ISparkConduit
-    function setMaxLiquidityBuffer(uint256 _maxLiquidityBuffer) external auth {
-        maxLiquidityBuffer = _maxLiquidityBuffer;
-
-        emit SetMaxLiquidityBuffer(_maxLiquidityBuffer);
     }
 
     /// @inheritdoc ISparkConduit

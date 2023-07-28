@@ -45,12 +45,6 @@ interface ISparkConduit is IAllocatorConduit {
     event SetSubsidySpread(uint256 subsidySpread);
 
     /**
-     * @notice Event emitted when max liquidity buffer is set
-     * @param maxLiquidityBuffer The new max liquidity buffer value
-     */
-    event SetMaxLiquidityBuffer(uint256 maxLiquidityBuffer);
-
-    /**
      * @notice Event emitted when an asset's status is enabled or disabled
      * @dev This will give infinite token approval to the pool as well
      * @param asset The address of the asset
@@ -89,13 +83,6 @@ interface ISparkConduit is IAllocatorConduit {
     function subsidySpread() external view returns (uint256);
 
     /**
-     * @notice Returns the max liquidity buffer associated with the spark conduit
-     * @dev Set this value to 0 to disable any restrictions
-     * @return The value of the max liquidity buffer
-     */
-    function maxLiquidityBuffer() external view returns (uint256);
-
-    /**
      * @notice Makes a request for funds. This will override any previous request with a new `amount`.
      * @param ilk The ilk from which the funds are requested
      * @param asset The asset for which the funds are requested
@@ -127,12 +114,6 @@ interface ISparkConduit is IAllocatorConduit {
      * @param _subsidySpread The new subsidy spread value
      */
     function setSubsidySpread(uint256 _subsidySpread) external;
-
-    /**
-     * @notice Sets the max liquidity buffer
-     * @param _maxLiquidityBuffer The new max liquidity buffer value
-     */
-    function setMaxLiquidityBuffer(uint256 _maxLiquidityBuffer) external;
 
     /**
      * @notice Enables or disables an asset
