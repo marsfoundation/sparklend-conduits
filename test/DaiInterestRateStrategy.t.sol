@@ -3,7 +3,8 @@ pragma solidity ^0.8.0;
 
 import "dss-test/DssTest.sol";
 
-import { DaiInterestRateStrategy, IInterestRateDataSource, DataTypes } from "../src/DaiInterestRateStrategy.sol";
+import { DaiInterestRateStrategy, IInterestRateDataSource, DataTypes }
+    from "../src/DaiInterestRateStrategy.sol";
 
 contract InterestRateDataSourceMock is IInterestRateDataSource {
 
@@ -30,17 +31,17 @@ contract InterestRateDataSourceMock is IInterestRateDataSource {
 
     function getInterestData(address) external view returns (InterestData memory data) {
         return InterestData({
-            baseRate: uint128(baseRate),
+            baseRate:    uint128(baseRate),
             subsidyRate: uint128(subsidyRate),
             currentDebt: uint128(currentDebt),
-            targetDebt: uint128(targetDebt)
+            targetDebt:  uint128(targetDebt)
         });
     }
 
 }
 
 contract DaiMock {
-    
+
     uint256 public liquidity;
 
     function setLiquidity(uint256 _liquidity) external {
@@ -50,23 +51,23 @@ contract DaiMock {
     function balanceOf(address) external view returns (uint256) {
         return liquidity;
     }
-    
+
 }
 
 contract DaiInterestRateStrategyTest is DssTest {
 
-    uint256 constant RBPS = RAY / 10000;
+    uint256 constant RBPS         = RAY / 10_000;
     uint256 constant ONE_TRILLION = 1_000_000_000_000;
 
     InterestRateDataSourceMock dataSource;
-    DaiMock dai;
-
-    DaiInterestRateStrategy interestStrategy;
+    DaiMock                    dai;
+    DaiInterestRateStrategy    interestStrategy;
 
     function setUp() public {
         dataSource = new InterestRateDataSourceMock();
+        dai        = new DaiMock();
+
         dataSource.setSubsidyRate(3_50 * RBPS);
-        dai = new DaiMock();
 
         interestStrategy = new DaiInterestRateStrategy(
             address(dai),
@@ -78,12 +79,12 @@ contract DaiInterestRateStrategyTest is DssTest {
 
     function test_constructor() public {
         assertEq(address(interestStrategy.dataSource()), address(dataSource));
-        assertEq(interestStrategy.spread(), 30 * RBPS);
-        assertEq(interestStrategy.maxRate(), 7_500 * RBPS);
+        assertEq(interestStrategy.spread(),              30 * RBPS);
+        assertEq(interestStrategy.maxRate(),             7_500 * RBPS);
 
         // Recompute should occur
-        assertEq(interestStrategy.getDebtRatio(), 0);
-        assertEq(interestStrategy.getBaseBorrowRate(), 3_80 * RBPS);
+        assertEq(interestStrategy.getDebtRatio(),           0);
+        assertEq(interestStrategy.getBaseBorrowRate(),      3_80 * RBPS);
         assertEq(interestStrategy.getLastUpdateTimestamp(), block.timestamp);
     }
 
@@ -91,16 +92,17 @@ contract DaiInterestRateStrategyTest is DssTest {
         dataSource.setCurrentDebt(50 * WAD);
         dataSource.setTargetDebt(100 * WAD);
         dataSource.setSubsidyRate(4_00 * RBPS);
+
         vm.warp(block.timestamp + 1 days);
 
-        assertEq(interestStrategy.getDebtRatio(), 0);
-        assertEq(interestStrategy.getBaseBorrowRate(), 3_80 * RBPS);
+        assertEq(interestStrategy.getDebtRatio(),           0);
+        assertEq(interestStrategy.getBaseBorrowRate(),      3_80 * RBPS);
         assertEq(interestStrategy.getLastUpdateTimestamp(), block.timestamp - 1 days);
 
         interestStrategy.recompute();
 
-        assertEq(interestStrategy.getDebtRatio(), WAD / 2);
-        assertEq(interestStrategy.getBaseBorrowRate(), 4_30 * RBPS);
+        assertEq(interestStrategy.getDebtRatio(),           WAD / 2);
+        assertEq(interestStrategy.getBaseBorrowRate(),      4_30 * RBPS);
         assertEq(interestStrategy.getLastUpdateTimestamp(), block.timestamp);
     }
 
@@ -163,14 +165,14 @@ contract DaiInterestRateStrategyTest is DssTest {
         uint256 maxRate
     ) public {
         // Keep the numbers sane
-        baseRate = _bound(baseRate, 0, 200_00 * RBPS);
-        subsidyRate = _bound(subsidyRate, 0, baseRate);
-        currentDebt = _bound(currentDebt, 0, ONE_TRILLION * WAD);
-        targetDebt = _bound(targetDebt, 0, ONE_TRILLION * WAD);
+        baseRate          = _bound(baseRate,          0, 200_00 * RBPS);
+        subsidyRate       = _bound(subsidyRate,       0, baseRate);
+        currentDebt       = _bound(currentDebt,       0, ONE_TRILLION * WAD);
+        targetDebt        = _bound(targetDebt,        0, ONE_TRILLION * WAD);
         totalVariableDebt = _bound(totalVariableDebt, 0, ONE_TRILLION * WAD);
-        liquidity = _bound(liquidity, 0, ONE_TRILLION * WAD);
-        maxRate = _bound(maxRate, 0, 200_00 * RBPS);
-        spread = _bound(spread, 0, maxRate);
+        liquidity         = _bound(liquidity,         0, ONE_TRILLION * WAD);
+        maxRate           = _bound(maxRate,           0, 200_00 * RBPS);
+        spread            = _bound(spread,            0, maxRate);
 
         interestStrategy = new DaiInterestRateStrategy(
             address(dai),
@@ -183,27 +185,42 @@ contract DaiInterestRateStrategyTest is DssTest {
         dataSource.setSubsidyRate(subsidyRate);
         dataSource.setCurrentDebt(currentDebt);
         dataSource.setTargetDebt(targetDebt);
+
         dai.setLiquidity(liquidity);
         interestStrategy.recompute();
 
-        uint256 utilization = totalVariableDebt > 0 ? totalVariableDebt * WAD / (totalVariableDebt + liquidity) : 0;
-        (uint256 supplyRate,, uint256 borrowRate) = interestStrategy.calculateInterestRates(DataTypes.CalculateInterestRatesParams(
-            0,
-            0,
-            0,
-            0,
-            totalVariableDebt,
-            0,
-            0,
-            address(dai),
-            address(0)
-        ));
+        uint256 utilization = totalVariableDebt > 0
+            ? totalVariableDebt * WAD / (totalVariableDebt + liquidity)
+            : 0;
 
-        assertLe(utilization, WAD, "utilization should be less than or equal to 1");
-        assertEq(borrowRate * utilization / WAD, supplyRate, "borrow rate * utilization should equal supply rate");
-        assertGe(borrowRate, supplyRate, "borrow rate should always be greater than or equal to the supply rate");
-        assertGe(borrowRate, interestStrategy.getBaseBorrowRate(), "borrow rate should be greater than or equal to base rate + spread");
-        assertLe(borrowRate, maxRate, "borrow rate should be less than or equal to max rate");
+        (uint256 supplyRate,, uint256 borrowRate)
+            = interestStrategy.calculateInterestRates(DataTypes.CalculateInterestRatesParams(
+                0,
+                0,
+                0,
+                0,
+                totalVariableDebt,
+                0,
+                0,
+                address(dai),
+                address(0)
+            ));
+
+        assertEq(
+            borrowRate * utilization / WAD,
+            supplyRate,
+            "borrowRate * utilization == supplyRate"
+        );
+
+        assertGe(
+            borrowRate,
+            interestStrategy.getBaseBorrowRate(),
+            "borrowRate >= base rate + spread"
+        );
+
+        assertLe(utilization, WAD,        "utilization < 1");
+        assertGe(borrowRate,  supplyRate, "borrowRate >= supplyRate");
+        assertLe(borrowRate,  maxRate,    "borrowRate <= maxRate");
     }
 
     function assertRates(
@@ -212,17 +229,18 @@ contract DaiInterestRateStrategyTest is DssTest {
         uint256 expectedBorrowRate,
         string memory errorMessage
     ) internal {
-        (uint256 supplyRate,, uint256 borrowRate) = interestStrategy.calculateInterestRates(DataTypes.CalculateInterestRatesParams(
-            0,
-            0,
-            0,
-            0,
-            totalVariableDebt,
-            0,
-            0,
-            address(dai),
-            address(0)
-        ));
+        (uint256 supplyRate,, uint256 borrowRate)
+            = interestStrategy.calculateInterestRates(DataTypes.CalculateInterestRatesParams(
+                0,
+                0,
+                0,
+                0,
+                totalVariableDebt,
+                0,
+                0,
+                address(dai),
+                address(0)
+            ));
 
         assertEq(supplyRate, expectedSupplyRate, errorMessage);
         assertEq(borrowRate, expectedBorrowRate, errorMessage);
