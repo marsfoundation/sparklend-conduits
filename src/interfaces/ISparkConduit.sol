@@ -127,12 +127,12 @@ interface ISparkConduit is IAllocatorConduit {
 
     /**
      *  @notice Returns data associated with an asset.
-     *  @param  asset            The address of the asset.
-     *  @return enabled          The status of the asset.
-     *  @return totalDeposits    The total deposits of the asset.
-     *  @return totalWithdrawals The total withdrawals of the asset.
+     *  @param  asset                   The address of the asset.
+     *  @return enabled                 The status of the asset.
+     *  @return totalDeposits           The total deposits of the asset.
+     *  @return totalPendingWithdrawals The total pending withdrawals of the asset.
      */
-    function getAssetData(address asset) external view returns (bool enabled, uint256 totalDeposits, uint256 totalWithdrawals);
+    function getAssetData(address asset) external view returns (bool enabled, uint256 totalDeposits, uint256 totalPendingWithdrawals);
 
     /**
      *  @notice Checks if an asset is enabled or not.
@@ -151,21 +151,21 @@ interface ISparkConduit is IAllocatorConduit {
     /**
      *  @notice Gets the total withdrawals of an asset.
      *  @param  asset The address of the asset.
-     *  @return The total amount of withdrawals for the asset.
+     *  @return The total amount of pending withdrawals for the asset.
      */
-    function getTotalWithdrawals(address asset) external view returns (uint256);
+    function getTotalPendingWithdrawals(address asset) external view returns (uint256);
 
     /**
      *  @notice Returns the position of a ilk for an asset.
-     *  @param  ilk         The ilk for which to return the position.
-     *  @param  asset       The asset for which to return the position.
-     *  @return deposits    The total deposits for the ilk.
-     *  @return withdrawals The total withdrawals for the ilk.
+     *  @param  ilk                The ilk for which to return the position.
+     *  @param  asset              The asset for which to return the position.
+     *  @return deposits           The total deposits for the ilk.
+     *  @return pendingWithdrawals The total pending withdrawals for the ilk.
      */
-    function getPosition(bytes32 ilk, address asset) external view returns (uint256 deposits, uint256 withdrawals);
+    function getPosition(bytes32 ilk, address asset) external view returns (uint256 deposits, uint256 pendingWithdrawals);
 
     /**
-     *  @notice Gets the total deposits for a given ilk and asset.
+     *  @notice Gets the deposits for a given ilk and asset.
      *  @param  ilk   The ilk to get the deposits for.
      *  @param  asset The asset to get the deposits for.
      *  @return The total amount of deposits for the given ilk and asset.
@@ -173,12 +173,12 @@ interface ISparkConduit is IAllocatorConduit {
     function getDeposits(bytes32 ilk, address asset) external view returns (uint256);
 
     /**
-     *  @notice Gets the total withdrawals for a given ilk and asset.
+     *  @notice Gets the pending withdrawals for a given ilk and asset.
      *  @param  ilk   The ilk to get the withdrawals for.
      *  @param  asset The asset to get the withdrawals for.
      *  @return The total amount of withdrawals for the given ilk and asset.
      */
-    function getWithdrawals(bytes32 ilk, address asset) external view returns (uint256);
+    function getPendingWithdrawals(bytes32 ilk, address asset) external view returns (uint256);
 
 }
 

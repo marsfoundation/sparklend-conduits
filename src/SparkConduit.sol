@@ -27,18 +27,18 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
 
     using WadRayMath for uint256;
 
-    // Please note deposits/withdrawals are in aToken "shares" instead of the underlying asset
+    // Please note shares/pendingWithdrawals are in aToken "shares" instead of the underlying asset
     struct Position {
-        uint256 deposits;
-        uint256 withdrawals;
+        uint256 shares;
+        uint256 pendingWithdrawals;
     }
 
-    // Please note totalDeposits/totalWithdrawals are in aToken "shares"
+    // Please note totalShares/totalPendingWithdrawals are in aToken "shares"
     // instead of the underlying asset
     struct AssetData {
         bool enabled;
-        uint256 totalDeposits;
-        uint256 totalWithdrawals;
+        uint256 totalShares;
+        uint256 totalPendingWithdrawals;
         mapping (bytes32 => Position) positions;
     }
 
@@ -85,7 +85,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     function deposit(bytes32 ilk, address asset, uint256 amount) external ilkAuth(ilk) {
         require(assets[asset].enabled, "SparkConduit/asset-disabled");
         require(
-            assets[asset].positions[ilk].withdrawals == 0,
+            assets[asset].positions[ilk].pendingWithdrawals == 0,
             "SparkConduit/no-deposit-with-pending-withdrawals"
         );
         require(amount <= maxDeposit(ilk, asset), "SparkConduit/max-deposit-exceeded");
@@ -102,8 +102,8 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         // Convert asset amount to shares
         uint256 shares = amount.rayDiv(pool.getReserveData(asset).liquidityIndex);
 
-        assets[asset].positions[ilk].deposits += shares;
-        assets[asset].totalDeposits           += shares;
+        assets[asset].positions[ilk].shares += shares;
+        assets[asset].totalShares           += shares;
 
         emit Deposit(ilk, asset, source, amount);
     }
@@ -125,35 +125,35 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         uint256 liquidityIndex = pool.getReserveData(asset).liquidityIndex;
         uint256 shares         = amount.rayDiv(liquidityIndex);
 
-        uint256 deposits    = assets[asset].positions[ilk].deposits;
-        uint256 withdrawals = assets[asset].positions[ilk].withdrawals;
+        uint256 pshares     = assets[asset].positions[ilk].shares;
+        uint256 withdrawals = assets[asset].positions[ilk].pendingWithdrawals;
 
-        if (deposits < shares) {
+        if (pshares < shares) {
             uint256 toReturnShares;
 
             unchecked {
-                toReturnShares = shares - deposits;
+                toReturnShares = shares - pshares;
             }
 
             uint256 toReturn = toReturnShares.rayMul(liquidityIndex);
             amount -= toReturn;
-            shares = deposits;
+            shares = pshares;
 
             // Return the excess to the pool as it's other user's deposits
             // Round against the user that is withdrawing
             pool.supply(asset, toReturn, address(this), 0);
         }
 
-        assets[asset].positions[ilk].deposits -= shares;
-        assets[asset].totalDeposits           -= shares;
+        assets[asset].positions[ilk].shares -= shares;
+        assets[asset].totalShares           -= shares;
 
         if (withdrawals > 0) {
             if (shares <= withdrawals) {
-                assets[asset].positions[ilk].withdrawals -= shares;
-                assets[asset].totalWithdrawals           -= shares;
+                assets[asset].positions[ilk].pendingWithdrawals -= shares;
+                assets[asset].totalPendingWithdrawals           -= shares;
             } else {
-                assets[asset].positions[ilk].withdrawals = 0;
-                assets[asset].totalWithdrawals           -= withdrawals;
+                assets[asset].positions[ilk].pendingWithdrawals = 0;
+                assets[asset].totalPendingWithdrawals           -= withdrawals;
             }
         }
 
@@ -173,7 +173,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     /// @inheritdoc IAllocatorConduit
     function maxWithdraw(bytes32 ilk, address asset) public view returns (uint256 maxWithdraw_) {
         DataTypes.ReserveData memory reserveData = pool.getReserveData(asset);
-        maxWithdraw_ = assets[asset].positions[ilk].deposits.rayMul(reserveData.liquidityIndex);
+        maxWithdraw_ = assets[asset].positions[ilk].shares.rayMul(reserveData.liquidityIndex);
 
         uint256 liquidityAvailable = IERC20(asset).balanceOf(reserveData.aTokenAddress);
         if (maxWithdraw_ > liquidityAvailable) maxWithdraw_ = liquidityAvailable;
@@ -192,24 +192,24 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         // This is fine though because we are not translating this into exact withdrawals anyways
         uint256 shares = amount.rayDiv(pool.getReserveData(asset).liquidityIndex);
 
-        uint256 deposits = assets[asset].positions[ilk].deposits;
-        require(shares <= deposits, "SparkConduit/amount-too-large");
+        uint256 pshares = assets[asset].positions[ilk].shares;
+        require(shares <= pshares, "SparkConduit/amount-too-large");
 
-        uint256 prevWithdrawals = assets[asset].positions[ilk].withdrawals;
+        uint256 prevWithdrawals = assets[asset].positions[ilk].pendingWithdrawals;
 
-        assets[asset].positions[ilk].withdrawals = shares;
-        assets[asset].totalWithdrawals = assets[asset].totalWithdrawals + shares - prevWithdrawals;
+        assets[asset].positions[ilk].pendingWithdrawals = shares;
+        assets[asset].totalPendingWithdrawals= assets[asset].totalPendingWithdrawals + shares - prevWithdrawals;
 
         emit RequestFunds(ilk, asset, amount);
     }
 
     /// @inheritdoc ISparkConduit
     function cancelFundRequest(bytes32 ilk, address asset) external ilkAuth(ilk) {
-        uint256 withdrawals = assets[asset].positions[ilk].withdrawals;
+        uint256 withdrawals = assets[asset].positions[ilk].pendingWithdrawals;
         require(withdrawals > 0, "SparkConduit/no-active-fund-requests");
 
-        assets[asset].positions[ilk].withdrawals = 0;
-        assets[asset].totalWithdrawals           -= withdrawals;
+        assets[asset].positions[ilk].pendingWithdrawals = 0;
+        assets[asset].totalPendingWithdrawals           -= withdrawals;
 
         emit CancelFundRequest(ilk, asset);
     }
@@ -217,14 +217,15 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     /// @inheritdoc IInterestRateDataSource
     function getInterestData(address asset) external view returns (InterestData memory data) {
         // Convert the DSR to a yearly APR
-        uint256 dsr      = (PotLike(pot).dsr() - RAY) * SECONDS_PER_YEAR;
-        uint256 deposits = assets[asset].totalDeposits;
+        uint256 dsr    = (PotLike(pot).dsr() - RAY) * SECONDS_PER_YEAR;
+        uint256 shares = assets[asset].totalShares;
+        uint256 index  = pool.getReserveData(asset).liquidityIndex;
 
         return InterestData({
             baseRate:    uint128(dsr + subsidySpread),
             subsidyRate: uint128(dsr),
-            currentDebt: uint128(deposits),
-            targetDebt:  uint128(deposits - assets[asset].totalWithdrawals)
+            currentDebt: uint128(shares.rayMul(index)),
+            targetDebt:  uint128((shares - assets[asset].totalPendingWithdrawals).rayMul(index))
         });
     }
 
@@ -264,8 +265,8 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         uint256 liquidityIndex = pool.getReserveData(asset).liquidityIndex;
         return (
             assets[asset].enabled,
-            assets[asset].totalDeposits.rayMul(liquidityIndex),
-            assets[asset].totalWithdrawals.rayMul(liquidityIndex)
+            assets[asset].totalShares.rayMul(liquidityIndex),
+            assets[asset].totalPendingWithdrawals.rayMul(liquidityIndex)
         );
     }
 
@@ -276,37 +277,37 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
 
     /// @inheritdoc ISparkConduit
     function getTotalDeposits(address asset) external view returns (uint256) {
-        return assets[asset].totalDeposits.rayMul(pool.getReserveData(asset).liquidityIndex);
+        return assets[asset].totalShares.rayMul(pool.getReserveData(asset).liquidityIndex);
     }
 
     /// @inheritdoc ISparkConduit
-    function getTotalWithdrawals(address asset) external view returns (uint256) {
-        return assets[asset].totalWithdrawals.rayMul(pool.getReserveData(asset).liquidityIndex);
+    function getTotalPendingWithdrawals(address asset) external view returns (uint256) {
+        return assets[asset].totalPendingWithdrawals.rayMul(pool.getReserveData(asset).liquidityIndex);
     }
 
     /// @inheritdoc ISparkConduit
     function getPosition(bytes32 ilk, address asset)
-        external view returns (uint256 _deposits, uint256 _withdrawals)
+        external view returns (uint256 _deposits, uint256 _pendingWithdrawals)
     {
         uint256 liquidityIndex = pool.getReserveData(asset).liquidityIndex;
         Position memory position = assets[asset].positions[ilk];
         return (
-            position.deposits.rayMul(liquidityIndex),
-            position.withdrawals.rayMul(liquidityIndex)
+            position.shares.rayMul(liquidityIndex),
+            position.pendingWithdrawals.rayMul(liquidityIndex)
         );
     }
 
     /// @inheritdoc ISparkConduit
     function getDeposits(bytes32 ilk, address asset) external view returns (uint256) {
         return
-            assets[asset].positions[ilk].deposits
+            assets[asset].positions[ilk].shares
                 .rayMul(pool.getReserveData(asset).liquidityIndex);
     }
 
     /// @inheritdoc ISparkConduit
-    function getWithdrawals(bytes32 ilk, address asset) external view returns (uint256) {
+    function getPendingWithdrawals(bytes32 ilk, address asset) external view returns (uint256) {
         return
-            assets[asset].positions[ilk].withdrawals
+            assets[asset].positions[ilk].pendingWithdrawals
                 .rayMul(pool.getReserveData(asset).liquidityIndex);
     }
 
