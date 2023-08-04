@@ -216,7 +216,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
 
     /// @inheritdoc IInterestRateDataSource
     function getInterestData(address asset) external view returns (InterestData memory data) {
-        // Convert the DSR a yearly APR
+        // Convert the DSR to a yearly APR
         uint256 dsr      = (PotLike(pot).dsr() - RAY) * SECONDS_PER_YEAR;
         uint256 deposits = assets[asset].totalDeposits;
 
