@@ -166,12 +166,8 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
 
     /// @inheritdoc IAllocatorConduit
     function maxDeposit(bytes32, address asset) public view returns (uint256 maxDeposit_) {
-        if (assets[asset].enabled) {
-            // Note: Purposefully ignoring any potental supply cap limits on Spark
-            return type(uint256).max;
-        } else {
-            return 0;
-        }
+        // Note: Purposefully ignoring any potental supply cap limits on Spark
+        return assets[asset].enabled ? type(uint256).max : 0;
     }
 
     /// @inheritdoc IAllocatorConduit
