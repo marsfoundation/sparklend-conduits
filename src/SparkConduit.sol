@@ -165,7 +165,8 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         uint256 prevWithdrawals = assets[asset].positions[ilk].pendingWithdrawals;
 
         assets[asset].positions[ilk].pendingWithdrawals = shares;
-        assets[asset].totalPendingWithdrawals= assets[asset].totalPendingWithdrawals + shares - prevWithdrawals;
+        assets[asset].totalPendingWithdrawals
+            = assets[asset].totalPendingWithdrawals + shares - prevWithdrawals;
 
         emit RequestFunds(ilk, asset, amount);
     }
