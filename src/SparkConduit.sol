@@ -159,8 +159,8 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         // Convert asset amount to shares
         uint256 shares = amount.rayDiv(IPool(pool).getReserveNormalizedIncome(asset));
 
-        uint256 pshares = assets[asset].positions[ilk].shares;
-        require(shares <= pshares, "SparkConduit/amount-too-large");
+        uint256 prevShares = assets[asset].positions[ilk].shares;
+        require(shares <= prevShares, "SparkConduit/amount-too-large");
 
         uint256 prevWithdrawals = assets[asset].positions[ilk].pendingWithdrawals;
 
