@@ -149,7 +149,7 @@ contract SparkConduitTest is DssTest {
         atoken = pool.atoken();
 
         UpgradeableProxy proxy = new UpgradeableProxy();
-        SparkConduit     impl  = new SparkConduit(IPool(address(pool)),address(pot));
+        SparkConduit     impl  = new SparkConduit(address(pool),address(pot));
 
         proxy.setImplementation(address(impl));
 
@@ -164,7 +164,7 @@ contract SparkConduitTest is DssTest {
     }
 
     function test_constructor() public {
-        assertEq(address(conduit.pool()),      address(pool));
+        assertEq(conduit.pool(),               address(pool));
         assertEq(conduit.pot(),                address(pot));
         assertEq(conduit.wards(address(this)), 1);
     }

@@ -3,9 +3,6 @@ pragma solidity >=0.8.0;
 
 import { IAllocatorConduit } from 'dss-allocator/src/interfaces/IAllocatorConduit.sol';
 
-import { IPool }  from 'aave-v3-core/contracts/interfaces/IPool.sol';
-import { IERC20 } from 'aave-v3-core/contracts/dependencies/openzeppelin/contracts/IERC20.sol';
-
 /**
  * @title  ISparkConduit
  * @notice This interface extends the IAllocatorConduit interfaces and manages asset
@@ -56,9 +53,9 @@ interface ISparkConduit is IAllocatorConduit {
 
     /**
      *  @notice Returns the pool associated with the spark conduit.
-     *  @return The pool interface.
+     *  @return The address of the pool.
      */
-    function pool() external view returns (IPool);
+    function pool() external view returns (address);
 
     /**
      *  @notice Returns the pot.
