@@ -13,3 +13,6 @@
 [submodule "lib/upgradeable-proxy"]
 	path = lib/upgradeable-proxy
 	url = https://github.com/marsfoundation/upgradeable-proxy
+[submodule "lib/erc20-helpers"]
+	path = lib/erc20-helpers
+	url = https://github.com/marsfoundation/erc20-helpers
