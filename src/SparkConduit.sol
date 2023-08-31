@@ -240,7 +240,8 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     }
 
     function getTotalPendingWithdrawals(address asset) external view returns (uint256) {
-        return assets[asset].totalPendingWithdrawals.rayMul(IPool(pool).getReserveNormalizedIncome(asset));
+        return
+            assets[asset].totalPendingWithdrawals.rayMul(IPool(pool).getReserveNormalizedIncome(asset));
     }
 
     function getPosition(bytes32 ilk, address asset)
