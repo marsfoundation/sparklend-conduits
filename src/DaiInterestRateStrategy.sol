@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.13;
 
-
 import { IERC20 }    from 'aave-v3-core/contracts/dependencies/openzeppelin/contracts/IERC20.sol';
 import { DataTypes } from 'aave-v3-core/contracts/protocol/libraries/types/DataTypes.sol';
 
