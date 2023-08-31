@@ -90,13 +90,13 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
 
         asset.safeTransferFrom(source, address(this), amount);
 
-        IPool(pool).supply(asset, amount, address(this), 0);
-
         // Convert asset amount to shares
         uint256 shares = amount.rayDiv(IPool(pool).getReserveNormalizedIncome(asset));
 
         assets[asset].positions[ilk].shares += shares;
         assets[asset].totalShares           += shares;
+
+        IPool(pool).supply(asset, amount, address(this), 0);
 
         emit Deposit(ilk, asset, source, amount);
     }
@@ -110,13 +110,10 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         // Constrain by the amount of liquidity available of the token
         amount = liquidityAvailable < maxAmount ? liquidityAvailable : maxAmount;
         
-        // Constrain by the amount of shares this ilk has
+        // Constrain by the amount of deposits this ilk has
         uint256 ilkDeposits = assets[asset].positions[ilk].shares.rayMul(IPool(pool).getReserveNormalizedIncome(asset));
-        amount = ilkDeposits < maxAmount ? ilkDeposits : maxAmount;
+        amount = ilkDeposits < amount ? ilkDeposits : amount;
 
-        // Normally you should update local state first for re-entrancy,
-        // but we need an update-to-date liquidity index for that
-        amount = IPool(pool).withdraw(asset, amount, address(this));
         uint256 shares = amount.rayDiv(IPool(pool).getReserveNormalizedIncome(asset));
 
         assets[asset].positions[ilk].shares -= shares;
@@ -135,7 +132,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
 
         address destination = RegistryLike(registry).buffers(ilk);
 
-        asset.safeTransfer(destination, amount);
+        IPool(pool).withdraw(asset, amount, destination);
 
         emit Withdraw(ilk, asset, destination, amount);
     }
