@@ -2,7 +2,6 @@
 pragma solidity ^0.8.13;
 
 import { IPool }      from 'aave-v3-core/contracts/interfaces/IPool.sol';
-import { DataTypes }  from 'aave-v3-core/contracts/protocol/libraries/types/DataTypes.sol';
 import { WadRayMath } from 'aave-v3-core/contracts/protocol/libraries/math/WadRayMath.sol';
 
 import { UpgradeableProxied } from "upgradeable-proxy/UpgradeableProxied.sol";
@@ -100,7 +99,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         pool.supply(asset, amount, address(this), 0);
 
         // Convert asset amount to shares
-        uint256 shares = amount.rayDiv(pool.getReserveData(asset).liquidityIndex);
+        uint256 shares = amount.rayDiv(pool.getReserveNormalizedIncome(asset));
 
         assets[asset].positions[ilk].shares += shares;
         assets[asset].totalShares           += shares;
@@ -115,38 +114,22 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         uint256 liquidityAvailable
             = IERC20(asset).balanceOf(pool.getReserveData(asset).aTokenAddress);
 
+        // Constrain by the amount of liquidity available of the token
         amount = liquidityAvailable < maxAmount ? liquidityAvailable : maxAmount;
+        
+        // Constrain by the amount of shares this ilk has
+        uint256 ilkDeposits = assets[asset].positions[ilk].shares.rayMul(pool.getReserveNormalizedIncome(asset));
+        amount = ilkDeposits < maxAmount ? ilkDeposits : maxAmount;
 
         // Normally you should update local state first for re-entrancy,
         // but we need an update-to-date liquidity index for that
         amount = pool.withdraw(asset, amount, address(this));
-
-        // Convert asset amount to shares
-        uint256 liquidityIndex = pool.getReserveData(asset).liquidityIndex;
-        uint256 shares         = amount.rayDiv(liquidityIndex);
-
-        uint256 pshares     = assets[asset].positions[ilk].shares;
-        uint256 withdrawals = assets[asset].positions[ilk].pendingWithdrawals;
-
-        if (pshares < shares) {
-            uint256 toReturnShares;
-
-            unchecked {
-                toReturnShares = shares - pshares;
-            }
-
-            uint256 toReturn = toReturnShares.rayMul(liquidityIndex);
-            amount -= toReturn;
-            shares = pshares;
-
-            // Return the excess to the pool as it's other user's deposits
-            // Round against the user that is withdrawing
-            pool.supply(asset, toReturn, address(this), 0);
-        }
+        uint256 shares = amount.rayDiv(pool.getReserveNormalizedIncome(asset));
 
         assets[asset].positions[ilk].shares -= shares;
         assets[asset].totalShares           -= shares;
 
+        uint256 withdrawals = assets[asset].positions[ilk].pendingWithdrawals;
         if (withdrawals > 0) {
             if (shares <= withdrawals) {
                 assets[asset].positions[ilk].pendingWithdrawals -= shares;
@@ -172,25 +155,18 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
 
     /// @inheritdoc IAllocatorConduit
     function maxWithdraw(bytes32 ilk, address asset) public view returns (uint256 maxWithdraw_) {
-        DataTypes.ReserveData memory reserveData = pool.getReserveData(asset);
-        maxWithdraw_ = assets[asset].positions[ilk].shares.rayMul(reserveData.liquidityIndex);
-
-        uint256 liquidityAvailable = IERC20(asset).balanceOf(reserveData.aTokenAddress);
+        maxWithdraw_ = assets[asset].positions[ilk].shares.rayMul(pool.getReserveNormalizedIncome(asset));
+        uint256 liquidityAvailable = IERC20(asset).balanceOf(pool.getReserveData(asset).aTokenAddress);
         if (maxWithdraw_ > liquidityAvailable) maxWithdraw_ = liquidityAvailable;
     }
 
     /// @inheritdoc ISparkConduit
     function requestFunds(bytes32 ilk, address asset, uint256 amount) external ilkAuth(ilk) {
-        DataTypes.ReserveData memory reserveData = pool.getReserveData(asset);
-
-        uint256 liquidityAvailable = IERC20(asset).balanceOf(reserveData.aTokenAddress);
+        uint256 liquidityAvailable = IERC20(asset).balanceOf(pool.getReserveData(asset).aTokenAddress);
         require(liquidityAvailable == 0, "SparkConduit/non-zero-liquidity");
 
         // Convert asset amount to shares
-        // Please note the interest conversion may be slightly out of date as there
-        // is no index update
-        // This is fine though because we are not translating this into exact withdrawals anyways
-        uint256 shares = amount.rayDiv(pool.getReserveData(asset).liquidityIndex);
+        uint256 shares = amount.rayDiv(pool.getReserveNormalizedIncome(asset));
 
         uint256 pshares = assets[asset].positions[ilk].shares;
         require(shares <= pshares, "SparkConduit/amount-too-large");
@@ -219,7 +195,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         // Convert the DSR to a yearly APR
         uint256 dsr    = (PotLike(pot).dsr() - RAY) * SECONDS_PER_YEAR;
         uint256 shares = assets[asset].totalShares;
-        uint256 index  = pool.getReserveData(asset).liquidityIndex;
+        uint256 index  = pool.getReserveNormalizedIncome(asset);
 
         return InterestData({
             baseRate:    uint128(dsr + subsidySpread),
@@ -262,7 +238,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     function getAssetData(address asset)
         external view returns (bool _enabled, uint256 _totalDeposits, uint256 _totalWithdrawals)
     {
-        uint256 liquidityIndex = pool.getReserveData(asset).liquidityIndex;
+        uint256 liquidityIndex = pool.getReserveNormalizedIncome(asset);
         return (
             assets[asset].enabled,
             assets[asset].totalShares.rayMul(liquidityIndex),
@@ -277,19 +253,19 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
 
     /// @inheritdoc ISparkConduit
     function getTotalDeposits(address asset) external view returns (uint256) {
-        return assets[asset].totalShares.rayMul(pool.getReserveData(asset).liquidityIndex);
+        return assets[asset].totalShares.rayMul(pool.getReserveNormalizedIncome(asset));
     }
 
     /// @inheritdoc ISparkConduit
     function getTotalPendingWithdrawals(address asset) external view returns (uint256) {
-        return assets[asset].totalPendingWithdrawals.rayMul(pool.getReserveData(asset).liquidityIndex);
+        return assets[asset].totalPendingWithdrawals.rayMul(pool.getReserveNormalizedIncome(asset));
     }
 
     /// @inheritdoc ISparkConduit
     function getPosition(bytes32 ilk, address asset)
         external view returns (uint256 _deposits, uint256 _pendingWithdrawals)
     {
-        uint256 liquidityIndex = pool.getReserveData(asset).liquidityIndex;
+        uint256 liquidityIndex = pool.getReserveNormalizedIncome(asset);
         Position memory position = assets[asset].positions[ilk];
         return (
             position.shares.rayMul(liquidityIndex),
@@ -301,14 +277,14 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     function getDeposits(bytes32 ilk, address asset) external view returns (uint256) {
         return
             assets[asset].positions[ilk].shares
-                .rayMul(pool.getReserveData(asset).liquidityIndex);
+                .rayMul(pool.getReserveNormalizedIncome(asset));
     }
 
     /// @inheritdoc ISparkConduit
     function getPendingWithdrawals(bytes32 ilk, address asset) external view returns (uint256) {
         return
             assets[asset].positions[ilk].pendingWithdrawals
-                .rayMul(pool.getReserveData(asset).liquidityIndex);
+                .rayMul(pool.getReserveNormalizedIncome(asset));
     }
 
 }

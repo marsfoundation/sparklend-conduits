@@ -4,14 +4,14 @@ pragma solidity ^0.8.0;
 import "dss-test/DssTest.sol";
 import { MockERC20 } from 'erc20-helpers/MockERC20.sol';
 import { UpgradeableProxy } from "upgradeable-proxy/UpgradeableProxy.sol";
+import { DataTypes }  from 'aave-v3-core/contracts/protocol/libraries/types/DataTypes.sol';
 
 import {
     SparkConduit,
     ISparkConduit,
     IPool,
     IInterestRateDataSource,
-    IERC20,
-    DataTypes
+    IERC20
 } from "../src/SparkConduit.sol";
 
 contract PoolMock {
@@ -60,6 +60,10 @@ contract PoolMock {
             unbacked:                    0,
             isolationModeTotalDebt:      0
         });
+    }
+
+    function getReserveNormalizedIncome(address) external view returns (uint256) {
+        return liquidityIndex;
     }
 
     function setLiquidityIndex(uint256 _liquidityIndex) external {
