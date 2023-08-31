@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.13;
 
-import { IERC20 }     from 'aave-v3-core/contracts/dependencies/openzeppelin/contracts/IERC20.sol';
 import { IPool }      from 'aave-v3-core/contracts/interfaces/IPool.sol';
 import { DataTypes }  from 'aave-v3-core/contracts/protocol/libraries/types/DataTypes.sol';
 import { WadRayMath } from 'aave-v3-core/contracts/protocol/libraries/math/WadRayMath.sol';
 
 import { UpgradeableProxied } from "upgradeable-proxy/UpgradeableProxied.sol";
+
+import { IERC20 }    from 'erc20-helpers/interfaces/IERC20.sol';
+import { SafeERC20 } from 'erc20-helpers/SafeERC20.sol';
 
 import { IInterestRateDataSource }          from './interfaces/IInterestRateDataSource.sol';
 import { ISparkConduit, IAllocatorConduit } from './interfaces/ISparkConduit.sol';
@@ -26,6 +28,7 @@ interface RegistryLike {
 contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSource {
 
     using WadRayMath for uint256;
+    using SafeERC20 for address;
 
     // Please note shares/pendingWithdrawals are in aToken "shares" instead of the underlying asset
     struct Position {
@@ -92,10 +95,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
 
         address source = RegistryLike(registry).buffers(ilk);
 
-        require(
-            IERC20(asset).transferFrom(source, address(this), amount),
-            "SparkConduit/transfer-failed"
-        );
+        asset.safeTransferFrom(source, address(this), amount);
 
         pool.supply(asset, amount, address(this), 0);
 
@@ -159,7 +159,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
 
         address destination = RegistryLike(registry).buffers(ilk);
 
-        IERC20(asset).transfer(destination, amount);
+        asset.safeTransfer(destination, amount);
 
         emit Withdraw(ilk, asset, destination, amount);
     }
@@ -253,7 +253,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     /// @inheritdoc ISparkConduit
     function setAssetEnabled(address asset, bool enabled) external auth {
         assets[asset].enabled = enabled;
-        IERC20(asset).approve(address(pool), enabled ? type(uint256).max : 0);
+        asset.safeApprove(address(pool), enabled ? type(uint256).max : 0);
 
         emit SetAssetEnabled(asset, enabled);
     }
