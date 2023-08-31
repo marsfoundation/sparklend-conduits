@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "dss-test/DssTest.sol";
-import { MockERC20 } from 'mock-erc20/src/MockERC20.sol';
+import { MockERC20 } from 'erc20-helpers/MockERC20.sol';
 import { UpgradeableProxy } from "upgradeable-proxy/UpgradeableProxy.sol";
 
 import {
