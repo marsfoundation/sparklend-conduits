@@ -84,7 +84,6 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
             assets[asset].positions[ilk].pendingWithdrawals == 0,
             "SparkConduit/no-deposit-with-pending-withdrawals"
         );
-        require(amount <= maxDeposit(ilk, asset), "SparkConduit/max-deposit-exceeded");
 
         address source = RegistryLike(registry).buffers(ilk);
 
