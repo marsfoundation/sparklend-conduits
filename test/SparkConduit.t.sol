@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.0;
 
-import "dss-test/DssTest.sol";
+import 'dss-test/DssTest.sol';
 import { MockERC20 } from 'erc20-helpers/MockERC20.sol';
-import { UpgradeableProxy } from "upgradeable-proxy/UpgradeableProxy.sol";
+import { UpgradeableProxy } from 'upgradeable-proxy/UpgradeableProxy.sol';
 import { DataTypes }  from 'aave-v3-core/contracts/protocol/libraries/types/DataTypes.sol';
 
 import {
@@ -12,7 +12,7 @@ import {
     IPool,
     IInterestRateDataSource,
     IERC20
-} from "../src/SparkConduit.sol";
+} from '../src/SparkConduit.sol';
 
 contract PoolMock {
 

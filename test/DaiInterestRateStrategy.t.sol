@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.0;
 
-import "dss-test/DssTest.sol";
+import 'dss-test/DssTest.sol';
 
 import { DaiInterestRateStrategy, IInterestRateDataSource, DataTypes }
-    from "../src/DaiInterestRateStrategy.sol";
+    from '../src/DaiInterestRateStrategy.sol';
 
 contract InterestRateDataSourceMock is IInterestRateDataSource {
 
