@@ -209,6 +209,8 @@ contract SparkConduitTest is DssTest {
 
         assertApproxEqAbs(conduit.getDeposits(ILK, address(token)), 100 ether, 1);
         assertApproxEqAbs(conduit.getTotalDeposits(address(token)), 100 ether, 1);
+        (uint256 deposits,) = conduit.getPosition(ILK, address(token));
+        assertApproxEqAbs(deposits, 100 ether, 1);
     }
 
     function test_deposit_revert_not_enabled() public {
@@ -375,6 +377,9 @@ contract SparkConduitTest is DssTest {
         assertEq(conduit.getTotalDeposits(address(token)),           100 ether);
         assertEq(conduit.getPendingWithdrawals(ILK, address(token)), 40 ether);
         assertEq(conduit.getTotalPendingWithdrawals(address(token)), 40 ether);
+        (uint256 deposits, uint256 pendingWithdrawals) = conduit.getPosition(ILK, address(token));
+        assertEq(deposits, 100 ether);
+        assertEq(pendingWithdrawals, 40 ether);
 
         // This should fill part of the withdrawal order
         deal(address(token), address(atoken), 60 ether);
@@ -599,6 +604,7 @@ contract SparkConduitTest is DssTest {
         (bool enabled,,) = conduit.getAssetData(address(token));
         assertEq(enabled, false);
         assertEq(token.allowance(address(conduit), address(pool)), 0);
+        assertEq(conduit.isAssetEnabled(address(token)), false);
 
         vm.expectEmit();
         emit SetAssetEnabled(address(token), true);
@@ -606,6 +612,7 @@ contract SparkConduitTest is DssTest {
         (enabled,,) = conduit.getAssetData(address(token));
 
         assertEq(enabled, true);
+        assertEq(conduit.isAssetEnabled(address(token)), true);
 
         assertEq(token.allowance(address(conduit), address(pool)), type(uint256).max);
         vm.expectEmit();
@@ -615,6 +622,7 @@ contract SparkConduitTest is DssTest {
         (enabled,,) = conduit.getAssetData(address(token));
         assertEq(enabled, false);
         assertEq(token.allowance(address(conduit), address(pool)), 0);
+        assertEq(conduit.isAssetEnabled(address(token)), false);
     }
 
 }
