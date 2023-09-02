@@ -87,14 +87,13 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
 
         address source = RegistryLike(registry).buffers(ilk);
 
-        asset.safeTransferFrom(source, address(this), amount);
-
         // Convert asset amount to shares
         uint256 shares = amount.rayDiv(IPool(pool).getReserveNormalizedIncome(asset));
 
         assets[asset].positions[ilk].shares += shares;
         assets[asset].totalShares           += shares;
 
+        asset.safeTransferFrom(source, address(this), amount);
         IPool(pool).supply(asset, amount, address(this), 0);
 
         emit Deposit(ilk, asset, source, amount);
