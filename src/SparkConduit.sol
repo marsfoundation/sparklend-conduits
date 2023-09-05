@@ -191,7 +191,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         uint256 withdrawals = requestedShares[asset][ilk];
         require(withdrawals > 0, "SparkConduit/no-active-fund-requests");
 
-        requestedShares[asset][ilk] -= withdrawals;
+        requestedShares[asset][ilk]  = 0;
         totalRequestedShares[asset] -= withdrawals;
 
         emit CancelFundRequest(ilk, asset);
