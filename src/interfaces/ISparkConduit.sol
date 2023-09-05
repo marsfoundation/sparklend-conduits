@@ -56,24 +56,6 @@ interface ISparkConduit is IAllocatorConduit {
     event SetAssetEnabled(address indexed asset, bool enabled);
 
     /**********************************************************************************************/
-    /*** Structs                                                                                ***/
-    /**********************************************************************************************/
-
-    /// @dev `shares/pendingWithdrawals` are in aToken "shares" instead of underlying asset
-    struct Position {
-        uint256 shares;
-        uint256 pendingWithdrawals;
-    }
-
-    /// @dev totalShares/totalPendingWithdrawals are in aToken "shares" instead of underlying asset
-    struct AssetData {
-        bool enabled;
-        uint256 totalShares;
-        uint256 totalPendingWithdrawals;
-        mapping (bytes32 => Position) positions;
-    }
-
-    /**********************************************************************************************/
     /*** State Variables                                                                        ***/
     /**********************************************************************************************/
 
@@ -158,16 +140,16 @@ interface ISparkConduit is IAllocatorConduit {
 
     /**
      *  @notice Returns data associated with an asset.
-     *  @param  asset                   The address of the asset.
-     *  @return enabled                 The status of the asset.
-     *  @return totalDeposits           The total deposits of the asset.
-     *  @return totalPendingWithdrawals The total pending withdrawals of the asset.
+     *  @param  asset               The address of the asset.
+     *  @return enabled             The status of the asset.
+     *  @return totalDeposits       The total deposits of the asset.
+     *  @return totalRequestedFunds The total pending withdrawals of the asset.
      */
     function getAssetData(address asset)
         external view returns (
             bool enabled,
             uint256 totalDeposits,
-            uint256 totalPendingWithdrawals
+            uint256 totalRequestedFunds
         );
 
     /**
@@ -185,18 +167,18 @@ interface ISparkConduit is IAllocatorConduit {
     function getTotalDeposits(address asset) external view returns (uint256);
 
     /**
-     *  @notice Gets the total withdrawals of an asset.
+     *  @notice Gets the total requested funds of an asset.
      *  @param  asset The address of the asset.
-     *  @return The total amount of pending withdrawals for the asset.
+     *  @return The total amount of pending requested funds for the asset.
      */
-    function getTotalPendingWithdrawals(address asset) external view returns (uint256);
+    function getTotalRequestedFunds(address asset) external view returns (uint256);
 
     /**
      *  @notice Returns the position of a ilk for an asset.
      *  @param  ilk                The ilk for which to return the position.
      *  @param  asset              The asset for which to return the position.
      *  @return deposits           The total deposits for the ilk.
-     *  @return pendingWithdrawals The total pending withdrawals for the ilk.
+     *  @return pendingWithdrawals The total pending requested funds for the ilk.
      */
     function getPosition(bytes32 ilk, address asset)
         external view returns (uint256 deposits, uint256 pendingWithdrawals);
@@ -210,12 +192,12 @@ interface ISparkConduit is IAllocatorConduit {
     function getDeposits(bytes32 ilk, address asset) external view returns (uint256);
 
     /**
-     *  @notice Gets the pending withdrawals for a given ilk and asset.
-     *  @param  ilk   The ilk to get the withdrawals for.
-     *  @param  asset The asset to get the withdrawals for.
-     *  @return The total amount of withdrawals for the given ilk and asset.
+     *  @notice Gets the pending requested funds for a given ilk and asset.
+     *  @param  ilk   The ilk to get the requested funds for.
+     *  @param  asset The asset to get the requested funds for.
+     *  @return The total amount of requested funds for the given ilk and asset.
      */
-    function getPendingWithdrawals(bytes32 ilk, address asset) external view returns (uint256);
+    function getRequestedFunds(bytes32 ilk, address asset) external view returns (uint256);
 
 }
 
