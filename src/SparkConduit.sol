@@ -143,11 +143,13 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
 
         uint256 withdrawals = pendingWithdrawals[asset][ilk];
 
-        // Reduce pending withdrawals by the min between amount pending and amount withdrawn
-        uint256 pendingWithdrawalsToRemove = _min(pendingWithdrawals[asset][ilk], removedShares);
+        if (withdrawals > 0) {
+            // Reduce pending withdrawals by the min between amount pending and amount withdrawn
+            uint256 pendingWithdrawalsToRemove = _min(withdrawals, removedShares);
 
-        pendingWithdrawals[asset][ilk] -= pendingWithdrawalsToRemove;
-        totalPendingWithdrawals[asset] -= pendingWithdrawalsToRemove;
+            pendingWithdrawals[asset][ilk] -= pendingWithdrawalsToRemove;
+            totalPendingWithdrawals[asset] -= pendingWithdrawalsToRemove;
+        }
 
         address destination = RegistryLike(registry).buffers(ilk);
 
