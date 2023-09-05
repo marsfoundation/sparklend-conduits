@@ -130,7 +130,6 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
 
         // Constrain by the amount of liquidity available of the token
         amount = liquidityAvailable < maxAmount ? liquidityAvailable : maxAmount;
-
         // Constrain by the amount of deposits this ilk has
         uint256 ilkDeposits = assets[asset].positions[ilk].shares.rayMul(IPool(pool).getReserveNormalizedIncome(asset));
         amount = ilkDeposits < amount ? ilkDeposits : amount;
