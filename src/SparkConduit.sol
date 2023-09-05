@@ -246,7 +246,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         return totalShares[asset].rayMul(IPool(pool).getReserveNormalizedIncome(asset));
     }
 
-    function getTotalPendingWithdrawals(address asset) external view returns (uint256) {
+    function getTotalRequestedFunds(address asset) external view returns (uint256) {
         return totalRequestedShares[asset].rayMul(IPool(pool).getReserveNormalizedIncome(asset));
     }
 
@@ -264,7 +264,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         return shares[asset][ilk].rayMul(IPool(pool).getReserveNormalizedIncome(asset));
     }
 
-    function getPendingWithdrawals(bytes32 ilk, address asset) external view returns (uint256) {
+    function getRequestedFunds(bytes32 ilk, address asset) external view returns (uint256) {
         return requestedShares[asset][ilk].rayMul(IPool(pool).getReserveNormalizedIncome(asset));
     }
 
