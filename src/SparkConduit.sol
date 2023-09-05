@@ -3,8 +3,7 @@ pragma solidity ^0.8.13;
 
 import { IPool } from 'aave-v3-core/contracts/interfaces/IPool.sol';
 
-import { IERC20 }    from 'erc20-helpers/interfaces/IERC20.sol';
-import { SafeERC20 } from 'erc20-helpers/SafeERC20.sol';
+import { IERC20, SafeERC20 } from 'erc20-helpers/SafeERC20.sol';
 
 import { UpgradeableProxied } from 'upgradeable-proxy/UpgradeableProxied.sol';
 
