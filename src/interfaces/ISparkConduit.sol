@@ -153,13 +153,6 @@ interface ISparkConduit is IAllocatorConduit {
         );
 
     /**
-     *  @notice Checks if an asset is enabled or not.
-     *  @param  asset The address of the asset.
-     *  @return Boolean value indicating whether the asset is enabled.
-     */
-    function isAssetEnabled(address asset) external view returns (bool);
-
-    /**
      *  @notice Gets the total deposits of an asset.
      *  @param  asset The address of the asset.
      *  @return The total amount of deposits for the asset.

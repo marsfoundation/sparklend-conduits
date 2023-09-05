@@ -604,7 +604,7 @@ contract SparkConduitTest is DssTest {
         (bool enabled,,) = conduit.getAssetData(address(token));
         assertEq(enabled, false);
         assertEq(token.allowance(address(conduit), address(pool)), 0);
-        assertEq(conduit.isAssetEnabled(address(token)), false);
+        assertEq(conduit.enabled(address(token)), false);
 
         vm.expectEmit();
         emit SetAssetEnabled(address(token), true);
@@ -612,7 +612,7 @@ contract SparkConduitTest is DssTest {
         (enabled,,) = conduit.getAssetData(address(token));
 
         assertEq(enabled, true);
-        assertEq(conduit.isAssetEnabled(address(token)), true);
+        assertEq(conduit.enabled(address(token)), true);
 
         assertEq(token.allowance(address(conduit), address(pool)), type(uint256).max);
         vm.expectEmit();
@@ -622,7 +622,7 @@ contract SparkConduitTest is DssTest {
         (enabled,,) = conduit.getAssetData(address(token));
         assertEq(enabled, false);
         assertEq(token.allowance(address(conduit), address(pool)), 0);
-        assertEq(conduit.isAssetEnabled(address(token)), false);
+        assertEq(conduit.enabled(address(token)), false);
     }
 
 }
