@@ -224,7 +224,7 @@ contract SparkConduitTest is DssTest {
         deal(address(token), address(atoken), 0);  // Zero out the liquidity so we can request funds
         conduit.requestFunds(ILK, address(token), 40 ether);
 
-        vm.expectRevert("SparkConduit/no-deposit-with-pending-withdrawals");
+        vm.expectRevert("SparkConduit/no-deposit-with-requested-shares");
         conduit.deposit(ILK, address(token), 100 ether);
     }
 

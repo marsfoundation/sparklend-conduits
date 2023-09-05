@@ -112,7 +112,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         require(enabled[asset], "SparkConduit/asset-disabled");
         require(
             requestedShares[asset][ilk] == 0,
-            "SparkConduit/no-deposit-with-pending-withdrawals"
+            "SparkConduit/no-deposit-with-requested-shares"
         );
 
         address source = RegistryLike(registry).buffers(ilk);
@@ -251,7 +251,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     }
 
     function getPosition(bytes32 ilk, address asset)
-        external view returns (uint256 _deposits, uint256 _requestedShares)
+        external view returns (uint256 deposits, uint256 requestedFunds)
     {
         uint256 liquidityIndex = IPool(pool).getReserveNormalizedIncome(asset);
         return (
