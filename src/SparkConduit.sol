@@ -4,10 +4,10 @@ pragma solidity ^0.8.13;
 import { IPool }      from 'aave-v3-core/contracts/interfaces/IPool.sol';
 import { WadRayMath } from 'aave-v3-core/contracts/protocol/libraries/math/WadRayMath.sol';
 
-import { UpgradeableProxied } from 'upgradeable-proxy/UpgradeableProxied.sol';
-
 import { IERC20 }    from 'erc20-helpers/interfaces/IERC20.sol';
 import { SafeERC20 } from 'erc20-helpers/SafeERC20.sol';
+
+import { UpgradeableProxied } from 'upgradeable-proxy/UpgradeableProxied.sol';
 
 import { IInterestRateDataSource } from './interfaces/IInterestRateDataSource.sol';
 import { ISparkConduit }           from './interfaces/ISparkConduit.sol';
@@ -27,24 +27,14 @@ interface RegistryLike {
 contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSource {
 
     using WadRayMath for uint256;
-    using SafeERC20 for address;
+    using SafeERC20  for address;
 
-    // Please note shares/pendingWithdrawals are in aToken "shares" instead of the underlying asset
-    struct Position {
-        uint256 shares;
-        uint256 pendingWithdrawals;
-    }
+    /**********************************************************************************************/
+    /*** Storage                                                                                ***/
+    /**********************************************************************************************/
 
-    // Please note totalShares/totalPendingWithdrawals are in aToken "shares"
-    // instead of the underlying asset
-    struct AssetData {
-        bool enabled;
-        uint256 totalShares;
-        uint256 totalPendingWithdrawals;
-        mapping (bytes32 => Position) positions;
-    }
-
-    // -- Storage --
+    address public immutable pool;
+    address public immutable pot;
 
     mapping(address => AssetData) private assets;
 
@@ -52,13 +42,9 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     address public registry;
     uint256 public subsidySpread;
 
-    // -- Immutable/constant --
-
-    address public immutable pool;
-    address public immutable pot;
-
-    uint256 private constant RAY = 10 ** 27;
-    uint256 private constant SECONDS_PER_YEAR = 365 days;
+    /**********************************************************************************************/
+    /*** Modifiers                                                                              ***/
+    /**********************************************************************************************/
 
     modifier auth() {
         require(wards[msg.sender] == 1, "SparkConduit/not-authorized");
@@ -73,10 +59,47 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         _;
     }
 
+    /**********************************************************************************************/
+    /*** Constructor                                                                            ***/
+    /**********************************************************************************************/
+
     constructor(address _pool, address _pot) {
         pool = _pool;
         pot  = _pot;
     }
+
+    /**********************************************************************************************/
+    /*** Admin Functions                                                                        ***/
+    /**********************************************************************************************/
+
+    function setRoles(address _roles) external auth {
+        roles = _roles;
+
+        emit SetRoles(_roles);
+    }
+
+    function setRegistry(address _registry) external auth {
+        registry = _registry;
+
+        emit SetRegistry(_registry);
+    }
+
+    function setSubsidySpread(uint256 _subsidySpread) external auth {
+        subsidySpread = _subsidySpread;
+
+        emit SetSubsidySpread(_subsidySpread);
+    }
+
+    function setAssetEnabled(address asset, bool enabled) external auth {
+        assets[asset].enabled = enabled;
+        asset.safeApprove(pool, enabled ? type(uint256).max : 0);
+
+        emit SetAssetEnabled(asset, enabled);
+    }
+
+    /**********************************************************************************************/
+    /*** Operator Functions                                                                     ***/
+    /**********************************************************************************************/
 
     function deposit(bytes32 ilk, address asset, uint256 amount) external ilkAuth(ilk) {
         require(assets[asset].enabled, "SparkConduit/asset-disabled");
@@ -107,7 +130,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
 
         // Constrain by the amount of liquidity available of the token
         amount = liquidityAvailable < maxAmount ? liquidityAvailable : maxAmount;
-        
+
         // Constrain by the amount of deposits this ilk has
         uint256 ilkDeposits = assets[asset].positions[ilk].shares.rayMul(IPool(pool).getReserveNormalizedIncome(asset));
         amount = ilkDeposits < amount ? ilkDeposits : amount;
@@ -133,18 +156,6 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         IPool(pool).withdraw(asset, amount, destination);
 
         emit Withdraw(ilk, asset, destination, amount);
-    }
-
-    function maxDeposit(bytes32, address asset) public view returns (uint256 maxDeposit_) {
-        // Note: Purposefully ignoring any potental supply cap limits on Spark.
-        //       This is because we assume the supply cap on this asset to be turned off.
-        return assets[asset].enabled ? type(uint256).max : 0;
-    }
-
-    function maxWithdraw(bytes32 ilk, address asset) public view returns (uint256 maxWithdraw_) {
-        maxWithdraw_ = assets[asset].positions[ilk].shares.rayMul(IPool(pool).getReserveNormalizedIncome(asset));
-        uint256 liquidityAvailable = IERC20(asset).balanceOf(IPool(pool).getReserveData(asset).aTokenAddress);
-        if (maxWithdraw_ > liquidityAvailable) maxWithdraw_ = liquidityAvailable;
     }
 
     function requestFunds(bytes32 ilk, address asset, uint256 amount) external ilkAuth(ilk) {
@@ -176,9 +187,25 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         emit CancelFundRequest(ilk, asset);
     }
 
+    /**********************************************************************************************/
+    /*** View Functions                                                                         ***/
+    /**********************************************************************************************/
+
+    function maxDeposit(bytes32, address asset) public view returns (uint256 maxDeposit_) {
+        // Note: Purposefully ignoring any potental supply cap limits on Spark.
+        //       This is because we assume the supply cap on this asset to be turned off.
+        return assets[asset].enabled ? type(uint256).max : 0;
+    }
+
+    function maxWithdraw(bytes32 ilk, address asset) public view returns (uint256 maxWithdraw_) {
+        maxWithdraw_ = assets[asset].positions[ilk].shares.rayMul(IPool(pool).getReserveNormalizedIncome(asset));
+        uint256 liquidityAvailable = IERC20(asset).balanceOf(IPool(pool).getReserveData(asset).aTokenAddress);
+        if (maxWithdraw_ > liquidityAvailable) maxWithdraw_ = liquidityAvailable;
+    }
+
     function getInterestData(address asset) external view returns (InterestData memory data) {
         // Convert the DSR to a yearly APR
-        uint256 dsr    = (PotLike(pot).dsr() - RAY) * SECONDS_PER_YEAR;
+        uint256 dsr    = (PotLike(pot).dsr() - 1e27) * 365 days;
         uint256 shares = assets[asset].totalShares;
         uint256 index  = IPool(pool).getReserveNormalizedIncome(asset);
 
@@ -188,31 +215,6 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
             currentDebt: uint128(shares.rayMul(index)),
             targetDebt:  uint128((shares - assets[asset].totalPendingWithdrawals).rayMul(index))
         });
-    }
-
-    function setRoles(address _roles) external auth {
-        roles = _roles;
-
-        emit SetRoles(_roles);
-    }
-
-    function setRegistry(address _registry) external auth {
-        registry = _registry;
-
-        emit SetRegistry(_registry);
-    }
-
-    function setSubsidySpread(uint256 _subsidySpread) external auth {
-        subsidySpread = _subsidySpread;
-
-        emit SetSubsidySpread(_subsidySpread);
-    }
-
-    function setAssetEnabled(address asset, bool enabled) external auth {
-        assets[asset].enabled = enabled;
-        asset.safeApprove(pool, enabled ? type(uint256).max : 0);
-
-        emit SetAssetEnabled(asset, enabled);
     }
 
     function getAssetData(address asset)

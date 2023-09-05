@@ -10,6 +10,10 @@ import { IAllocatorConduit } from 'dss-allocator/IAllocatorConduit.sol';
  */
 interface ISparkConduit is IAllocatorConduit {
 
+    /**********************************************************************************************/
+    /*** Events                                                                                 ***/
+    /**********************************************************************************************/
+
     /**
      *  @notice Event emitted when a new fund request is made.
      *  @param  ilk    The ilk from which the funds are requested.
@@ -51,6 +55,28 @@ interface ISparkConduit is IAllocatorConduit {
      */
     event SetAssetEnabled(address indexed asset, bool enabled);
 
+    /**********************************************************************************************/
+    /*** Structs                                                                                ***/
+    /**********************************************************************************************/
+
+    /// @dev `shares/pendingWithdrawals` are in aToken "shares" instead of underlying asset
+    struct Position {
+        uint256 shares;
+        uint256 pendingWithdrawals;
+    }
+
+    /// @dev totalShares/totalPendingWithdrawals are in aToken "shares" instead of underlying asset
+    struct AssetData {
+        bool enabled;
+        uint256 totalShares;
+        uint256 totalPendingWithdrawals;
+        mapping (bytes32 => Position) positions;
+    }
+
+    /**********************************************************************************************/
+    /*** State Variables                                                                        ***/
+    /**********************************************************************************************/
+
     /**
      *  @notice Returns the pool associated with the spark conduit.
      *  @return The address of the pool.
@@ -80,6 +106,10 @@ interface ISparkConduit is IAllocatorConduit {
      *  @return The value of the subsidy spread.
      */
     function subsidySpread() external view returns (uint256);
+
+    /**********************************************************************************************/
+    /*** External Functions                                                                     ***/
+    /**********************************************************************************************/
 
     /**
      *  @notice Makes a request for funds.
@@ -122,6 +152,10 @@ interface ISparkConduit is IAllocatorConduit {
      */
     function setAssetEnabled(address asset, bool enabled) external;
 
+    /**********************************************************************************************/
+    /*** View Functions                                                                         ***/
+    /**********************************************************************************************/
+
     /**
      *  @notice Returns data associated with an asset.
      *  @param  asset                   The address of the asset.
@@ -129,7 +163,12 @@ interface ISparkConduit is IAllocatorConduit {
      *  @return totalDeposits           The total deposits of the asset.
      *  @return totalPendingWithdrawals The total pending withdrawals of the asset.
      */
-    function getAssetData(address asset) external view returns (bool enabled, uint256 totalDeposits, uint256 totalPendingWithdrawals);
+    function getAssetData(address asset)
+        external view returns (
+            bool enabled,
+            uint256 totalDeposits,
+            uint256 totalPendingWithdrawals
+        );
 
     /**
      *  @notice Checks if an asset is enabled or not.
@@ -159,7 +198,8 @@ interface ISparkConduit is IAllocatorConduit {
      *  @return deposits           The total deposits for the ilk.
      *  @return pendingWithdrawals The total pending withdrawals for the ilk.
      */
-    function getPosition(bytes32 ilk, address asset) external view returns (uint256 deposits, uint256 pendingWithdrawals);
+    function getPosition(bytes32 ilk, address asset)
+        external view returns (uint256 deposits, uint256 pendingWithdrawals);
 
     /**
      *  @notice Gets the deposits for a given ilk and asset.
