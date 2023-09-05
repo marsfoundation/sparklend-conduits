@@ -44,10 +44,10 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     mapping(address => bool) public enabled;
 
     mapping(address => uint256) public totalShares;
-    mapping(address => uint256) public totalPendingWithdrawals;
+    mapping(address => uint256) public totalRequestedShares;
 
     mapping(address => mapping(bytes32 => uint256)) public shares;
-    mapping(address => mapping(bytes32 => uint256)) public pendingWithdrawals;
+    mapping(address => mapping(bytes32 => uint256)) public requestedShares;
 
     /**********************************************************************************************/
     /*** Modifiers                                                                              ***/
@@ -111,7 +111,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     function deposit(bytes32 ilk, address asset, uint256 amount) external ilkAuth(ilk) {
         require(enabled[asset], "SparkConduit/asset-disabled");
         require(
-            pendingWithdrawals[asset][ilk] == 0,
+            requestedShares[asset][ilk] == 0,
             "SparkConduit/no-deposit-with-pending-withdrawals"
         );
 
@@ -147,15 +147,15 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         shares[asset][ilk] -= removedShares;
         totalShares[asset] -= removedShares;
 
-        uint256 withdrawals = pendingWithdrawals[asset][ilk];
+        uint256 withdrawals = requestedShares[asset][ilk];
 
         if (withdrawals > 0) {
             if (removedShares <= withdrawals) {
-                pendingWithdrawals[asset][ilk] -= removedShares;
-                totalPendingWithdrawals[asset] -= removedShares;
+                requestedShares[asset][ilk] -= removedShares;
+                totalRequestedShares[asset] -= removedShares;
             } else {
-                pendingWithdrawals[asset][ilk] = 0;
-                totalPendingWithdrawals[asset] -= withdrawals;
+                requestedShares[asset][ilk] = 0;
+                totalRequestedShares[asset] -= withdrawals;
             }
         }
 
@@ -171,28 +171,28 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         require(liquidityAvailable == 0, "SparkConduit/non-zero-liquidity");
 
         // Convert asset amount to shares
-        uint256 requestedShares = amount.rayDiv(IPool(pool).getReserveNormalizedIncome(asset));
+        uint256 newRequestedShares = amount.rayDiv(IPool(pool).getReserveNormalizedIncome(asset));
 
         uint256 currentShares = shares[asset][ilk];
 
-        require(requestedShares <= currentShares, "SparkConduit/amount-too-large");
+        require(newRequestedShares <= currentShares, "SparkConduit/amount-too-large");
 
-        uint256 prevWithdrawals = pendingWithdrawals[asset][ilk];
+        uint256 prevRequestedShares = requestedShares[asset][ilk];
 
-        pendingWithdrawals[asset][ilk] = requestedShares;
+        requestedShares[asset][ilk] = newRequestedShares;
 
-        totalPendingWithdrawals[asset]
-            = totalPendingWithdrawals[asset] + requestedShares - prevWithdrawals;
+        totalRequestedShares[asset]
+            = totalRequestedShares[asset] + newRequestedShares - prevRequestedShares;
 
         emit RequestFunds(ilk, asset, amount);
     }
 
     function cancelFundRequest(bytes32 ilk, address asset) external ilkAuth(ilk) {
-        uint256 withdrawals = pendingWithdrawals[asset][ilk];
+        uint256 withdrawals = requestedShares[asset][ilk];
         require(withdrawals > 0, "SparkConduit/no-active-fund-requests");
 
-        pendingWithdrawals[asset][ilk] -= withdrawals;
-        totalPendingWithdrawals[asset] -= withdrawals;
+        requestedShares[asset][ilk] -= withdrawals;
+        totalRequestedShares[asset] -= withdrawals;
 
         emit CancelFundRequest(ilk, asset);
     }
@@ -223,7 +223,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
             baseRate:    uint128(dsr + subsidySpread),
             subsidyRate: uint128(dsr),
             currentDebt: uint128(totalShares_.rayMul(index)),
-            targetDebt:  uint128((totalShares_ - totalPendingWithdrawals[asset]).rayMul(index))
+            targetDebt:  uint128((totalShares_ - totalRequestedShares[asset]).rayMul(index))
         });
     }
 
@@ -234,7 +234,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         return (
             enabled[asset],
             totalShares[asset].rayMul(liquidityIndex),
-            totalPendingWithdrawals[asset].rayMul(liquidityIndex)
+            totalRequestedShares[asset].rayMul(liquidityIndex)
         );
     }
 
@@ -247,16 +247,16 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     }
 
     function getTotalPendingWithdrawals(address asset) external view returns (uint256) {
-        return totalPendingWithdrawals[asset].rayMul(IPool(pool).getReserveNormalizedIncome(asset));
+        return totalRequestedShares[asset].rayMul(IPool(pool).getReserveNormalizedIncome(asset));
     }
 
     function getPosition(bytes32 ilk, address asset)
-        external view returns (uint256 _deposits, uint256 _pendingWithdrawals)
+        external view returns (uint256 _deposits, uint256 _requestedShares)
     {
         uint256 liquidityIndex = IPool(pool).getReserveNormalizedIncome(asset);
         return (
             shares[asset][ilk].rayMul(liquidityIndex),
-            pendingWithdrawals[asset][ilk].rayMul(liquidityIndex)
+            requestedShares[asset][ilk].rayMul(liquidityIndex)
         );
     }
 
@@ -265,7 +265,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     }
 
     function getPendingWithdrawals(bytes32 ilk, address asset) external view returns (uint256) {
-        return pendingWithdrawals[asset][ilk].rayMul(IPool(pool).getReserveNormalizedIncome(asset));
+        return requestedShares[asset][ilk].rayMul(IPool(pool).getReserveNormalizedIncome(asset));
     }
 
 }
