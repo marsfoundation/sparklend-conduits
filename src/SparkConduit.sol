@@ -36,11 +36,18 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     address public immutable pool;
     address public immutable pot;
 
-    mapping(address => AssetData) private assets;
-
     address public roles;
     address public registry;
     uint256 public subsidySpread;
+
+    // TODO: Override
+    mapping(address => bool) public enabled;
+
+    mapping(address => uint256) public totalShares;
+    mapping(address => uint256) public totalPendingWithdrawals;
+
+    mapping(address => mapping(bytes32 => uint256)) public shares;
+    mapping(address => mapping(bytes32 => uint256)) public pendingWithdrawal;
 
     /**********************************************************************************************/
     /*** Modifiers                                                                              ***/

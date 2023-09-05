@@ -56,24 +56,6 @@ interface ISparkConduit is IAllocatorConduit {
     event SetAssetEnabled(address indexed asset, bool enabled);
 
     /**********************************************************************************************/
-    /*** Structs                                                                                ***/
-    /**********************************************************************************************/
-
-    /// @dev `shares/pendingWithdrawals` are in aToken "shares" instead of underlying asset
-    struct Position {
-        uint256 shares;
-        uint256 pendingWithdrawals;
-    }
-
-    /// @dev totalShares/totalPendingWithdrawals are in aToken "shares" instead of underlying asset
-    struct AssetData {
-        bool enabled;
-        uint256 totalShares;
-        uint256 totalPendingWithdrawals;
-        mapping (bytes32 => Position) positions;
-    }
-
-    /**********************************************************************************************/
     /*** State Variables                                                                        ***/
     /**********************************************************************************************/
 
