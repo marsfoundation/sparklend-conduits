@@ -9,7 +9,6 @@ import { DataTypes }  from 'aave-v3-core/contracts/protocol/libraries/types/Data
 import {
     SparkConduit,
     ISparkConduit,
-    IPool,
     IInterestRateDataSource,
     IERC20
 } from '../src/SparkConduit.sol';
