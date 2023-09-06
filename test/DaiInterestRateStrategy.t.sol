@@ -7,7 +7,7 @@ import { DaiInterestRateStrategy, DataTypes } from '../src/DaiInterestRateStrate
 
 import { DaiMock, InterestRateDataSourceMock } from './Mocks.sol';
 
-contract DaiInterestRateStrategyTest is DssTest {
+contract DaiInterestRateStrategyTestBase is DssTest {
 
     uint256 constant RBPS         = RAY / 10_000;
     uint256 constant ONE_TRILLION = 1_000_000_000_000;
@@ -30,6 +30,10 @@ contract DaiInterestRateStrategyTest is DssTest {
         );
     }
 
+}
+
+contract DaiInterestRateStrategyConstructorTests is DaiInterestRateStrategyTestBase {
+
     function test_constructor() public {
         assertEq(address(interestStrategy.dataSource()), address(dataSource));
         assertEq(interestStrategy.spread(),              30 * RBPS);
@@ -40,6 +44,10 @@ contract DaiInterestRateStrategyTest is DssTest {
         assertEq(interestStrategy.getBaseBorrowRate(),      3_80 * RBPS);
         assertEq(interestStrategy.getLastUpdateTimestamp(), block.timestamp);
     }
+
+}
+
+contract DaiInterestRateStrategyRecomputeTests is DaiInterestRateStrategyTestBase {
 
     function test_recompute() public {
         dataSource.setCurrentDebt(50 * WAD);
@@ -58,6 +66,10 @@ contract DaiInterestRateStrategyTest is DssTest {
         assertEq(interestStrategy.getBaseBorrowRate(),      4_30 * RBPS);
         assertEq(interestStrategy.getLastUpdateTimestamp(), block.timestamp);
     }
+
+}
+
+contract DaiInterestRateStrategyCalculateInterestRatesTests is DaiInterestRateStrategyTestBase {
 
     function test_calculateInterestRates_zero_usage_zero_limit() public {
         assertEq(dataSource.getInterestData(address(dai)).currentDebt, 0);
