@@ -7,7 +7,58 @@ import { DataTypes } from 'aave-v3-core/contracts/protocol/libraries/types/DataT
 
 import { MockERC20 } from 'erc20-helpers/MockERC20.sol';
 
+import { DaiInterestRateStrategy, IInterestRateDataSource, DataTypes }
+    from '../src/DaiInterestRateStrategy.sol';
+
 import { SparkConduit, IERC20 } from '../src/SparkConduit.sol';
+
+contract DaiMock {
+
+    uint256 public liquidity;
+
+    function setLiquidity(uint256 _liquidity) external {
+        liquidity += _liquidity;
+    }
+
+    function balanceOf(address) external view returns (uint256) {
+        return liquidity;
+    }
+
+}
+
+contract InterestRateDataSourceMock is IInterestRateDataSource {
+
+    uint256 baseRate;
+    uint256 subsidyRate;
+    uint256 currentDebt;
+    uint256 targetDebt;
+
+    function setBaseRate(uint256 _baseRate) external {
+        baseRate = _baseRate;
+    }
+
+    function setSubsidyRate(uint256 _subsidyRate) external {
+        subsidyRate = _subsidyRate;
+    }
+
+    function setCurrentDebt(uint256 _currentDebt) external {
+        currentDebt = _currentDebt;
+    }
+
+    function setTargetDebt(uint256 _targetDebt) external {
+        targetDebt = _targetDebt;
+    }
+
+    function getInterestData(address) external view returns (InterestData memory data) {
+        return InterestData({
+            baseRate:    uint128(baseRate),
+            subsidyRate: uint128(subsidyRate),
+            currentDebt: uint128(currentDebt),
+            targetDebt:  uint128(targetDebt)
+        });
+    }
+
+}
 
 contract PoolMock {
 
