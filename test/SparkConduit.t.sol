@@ -11,7 +11,7 @@ import { SparkConduit, IInterestRateDataSource } from '../src/SparkConduit.sol';
 
 import { PoolMock, PotMock, RolesMock, RegistryMock } from "./Mocks.sol";
 
-contract SparkConduitTest is DssTest {
+contract SparkConduitTestBase is DssTest {
 
     uint256 constant RBPS             = RAY / 10_000;
     uint256 constant WBPS             = WAD / 10_000;
@@ -64,11 +64,19 @@ contract SparkConduitTest is DssTest {
         token.approve(address(conduit), type(uint256).max);
     }
 
+}
+
+contract SparkConduitConstructorTests is SparkConduitTestBase {
+
     function test_constructor() public {
         assertEq(conduit.pool(),               address(pool));
         assertEq(conduit.pot(),                address(pot));
         assertEq(conduit.wards(address(this)), 1);
     }
+
+}
+
+contract SparkConduitModifierTests is SparkConduitTestBase {
 
     function test_authModifiers() public {
         UpgradeableProxy(address(conduit)).deny(address(this));
@@ -91,6 +99,10 @@ contract SparkConduitTest is DssTest {
             SparkConduit.cancelFundRequest.selector
         ]);
     }
+
+}
+
+contract SparkConduitDepositTests is SparkConduitTestBase {
 
     function test_deposit() public {
         conduit.setAssetEnabled(address(token), true);
@@ -128,6 +140,10 @@ contract SparkConduitTest is DssTest {
         vm.expectRevert("SparkConduit/no-deposit-with-requested-shares");
         conduit.deposit(ILK, address(token), 100 ether);
     }
+
+}
+
+contract SparkConduitWithdrawTests is SparkConduitTestBase {
 
     function test_withdraw_single_partial_liquidity_available() public {
         conduit.setAssetEnabled(address(token), true);
@@ -318,6 +334,10 @@ contract SparkConduitTest is DssTest {
         assertEq(conduit.getTotalDeposits(address(token)), 60 ether);
     }
 
+}
+
+contract SparkConduitMaxViewFunctionTests is SparkConduitTestBase {
+
     function test_maxDeposit() public {
         conduit.setAssetEnabled(address(token), true);
         assertEq(conduit.maxDeposit(ILK, address(token)), type(uint256).max);
@@ -341,6 +361,10 @@ contract SparkConduitTest is DssTest {
 
         assertEq(conduit.maxWithdraw(ILK, address(token)), 40 ether);
     }
+
+}
+
+contract SparkConduitRequestFundsTests is SparkConduitTestBase {
 
     function test_requestFunds() public {
         conduit.setAssetEnabled(address(token), true);
@@ -427,6 +451,10 @@ contract SparkConduitTest is DssTest {
         conduit.requestFunds(ILK, address(token), 150 ether);
     }
 
+}
+
+contract SparkConduitCancelFundRequestTests is SparkConduitTestBase {
+
     function test_cancelFundRequest() public {
         conduit.setAssetEnabled(address(token), true);
         pool.setLiquidityIndex(200_00 * RBPS);
@@ -455,6 +483,10 @@ contract SparkConduitTest is DssTest {
         conduit.cancelFundRequest(ILK2, address(token));
     }
 
+}
+
+contract SparkConduitGettersTests is SparkConduitTestBase {
+
     function test_getInterestData() public {
         pool.setLiquidityIndex(200_00 * RBPS);
         conduit.setSubsidySpread(50 * RBPS);
@@ -472,6 +504,10 @@ contract SparkConduitTest is DssTest {
         assertEq(data.currentDebt, 100 ether);
         assertEq(data.targetDebt,  60 ether);
     }
+
+}
+
+contract SparkConduitAdminSetterTests is SparkConduitTestBase {
 
     function test_setRoles() public {
         address newRoles = makeAddr("newRoles");
