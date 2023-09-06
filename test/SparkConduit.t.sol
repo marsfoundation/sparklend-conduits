@@ -104,6 +104,21 @@ contract SparkConduitModifierTests is SparkConduitTestBase {
 
 contract SparkConduitDepositTests is SparkConduitTestBase {
 
+    function test_deposit_revert_not_enabled() public {
+        vm.expectRevert("SparkConduit/asset-disabled");
+        conduit.deposit(ILK, address(token), 100 ether);
+    }
+
+    function test_deposit_revert_pending_withdrawal() public {
+        conduit.setAssetEnabled(address(token), true);
+        conduit.deposit(ILK, address(token), 100 ether);
+        deal(address(token), address(atoken), 0);  // Zero out the liquidity so we can request funds
+        conduit.requestFunds(ILK, address(token), 40 ether);
+
+        vm.expectRevert("SparkConduit/no-deposit-with-requested-shares");
+        conduit.deposit(ILK, address(token), 100 ether);
+    }
+
     function test_deposit() public {
         conduit.setAssetEnabled(address(token), true);
         pool.setLiquidityIndex(101_00 * RBPS);  // Induce a slight rounding error
@@ -124,21 +139,6 @@ contract SparkConduitDepositTests is SparkConduitTestBase {
         assertApproxEqAbs(conduit.getTotalDeposits(address(token)), 100 ether, 1);
         (uint256 deposits,) = conduit.getPosition(ILK, address(token));
         assertApproxEqAbs(deposits, 100 ether, 1);
-    }
-
-    function test_deposit_revert_not_enabled() public {
-        vm.expectRevert("SparkConduit/asset-disabled");
-        conduit.deposit(ILK, address(token), 100 ether);
-    }
-
-    function test_deposit_revert_pending_withdrawal() public {
-        conduit.setAssetEnabled(address(token), true);
-        conduit.deposit(ILK, address(token), 100 ether);
-        deal(address(token), address(atoken), 0);  // Zero out the liquidity so we can request funds
-        conduit.requestFunds(ILK, address(token), 40 ether);
-
-        vm.expectRevert("SparkConduit/no-deposit-with-requested-shares");
-        conduit.deposit(ILK, address(token), 100 ether);
     }
 
 }
@@ -366,6 +366,25 @@ contract SparkConduitMaxViewFunctionTests is SparkConduitTestBase {
 
 contract SparkConduitRequestFundsTests is SparkConduitTestBase {
 
+    function test_requestFunds_revert_non_zero_liquidity() public {
+        conduit.setAssetEnabled(address(token), true);
+        pool.setLiquidityIndex(200_00 * RBPS);
+        conduit.deposit(ILK, address(token), 100 ether);
+
+        vm.expectRevert("SparkConduit/non-zero-liquidity");
+        conduit.requestFunds(ILK, address(token), 40 ether);
+    }
+
+    function test_requestFunds_revert_amount_too_large() public {
+        conduit.setAssetEnabled(address(token), true);
+        pool.setLiquidityIndex(200_00 * RBPS);
+        conduit.deposit(ILK, address(token), 100 ether);
+        deal(address(token), address(atoken), 0);
+
+        vm.expectRevert("SparkConduit/amount-too-large");
+        conduit.requestFunds(ILK, address(token), 150 ether);
+    }
+
     function test_requestFunds() public {
         conduit.setAssetEnabled(address(token), true);
         pool.setLiquidityIndex(200_00 * RBPS);
@@ -432,28 +451,19 @@ contract SparkConduitRequestFundsTests is SparkConduitTestBase {
         assertEq(conduit.getTotalRequestedFunds(address(token)),  69 ether);
     }
 
-    function test_requestFunds_revert_non_zero_liquidity() public {
-        conduit.setAssetEnabled(address(token), true);
-        pool.setLiquidityIndex(200_00 * RBPS);
-        conduit.deposit(ILK, address(token), 100 ether);
+}
 
-        vm.expectRevert("SparkConduit/non-zero-liquidity");
-        conduit.requestFunds(ILK, address(token), 40 ether);
-    }
+contract SparkConduitCancelFundRequestTests is SparkConduitTestBase {
 
-    function test_requestFunds_revert_amount_too_large() public {
+    function test_cancelFundRequest_revert_no_withdrawal() public {
         conduit.setAssetEnabled(address(token), true);
         pool.setLiquidityIndex(200_00 * RBPS);
         conduit.deposit(ILK, address(token), 100 ether);
         deal(address(token), address(atoken), 0);
 
-        vm.expectRevert("SparkConduit/amount-too-large");
-        conduit.requestFunds(ILK, address(token), 150 ether);
+        vm.expectRevert("SparkConduit/no-active-fund-requests");
+        conduit.cancelFundRequest(ILK2, address(token));
     }
-
-}
-
-contract SparkConduitCancelFundRequestTests is SparkConduitTestBase {
 
     function test_cancelFundRequest() public {
         conduit.setAssetEnabled(address(token), true);
@@ -471,16 +481,6 @@ contract SparkConduitCancelFundRequestTests is SparkConduitTestBase {
 
         assertEq(conduit.getRequestedFunds(ILK, address(token)), 0);
         assertEq(conduit.getTotalRequestedFunds(address(token)), 0);
-    }
-
-    function test_cancelFundRequest_revert_no_withdrawal() public {
-        conduit.setAssetEnabled(address(token), true);
-        pool.setLiquidityIndex(200_00 * RBPS);
-        conduit.deposit(ILK, address(token), 100 ether);
-        deal(address(token), address(atoken), 0);
-
-        vm.expectRevert("SparkConduit/no-active-fund-requests");
-        conduit.cancelFundRequest(ILK2, address(token));
     }
 
 }
