@@ -20,6 +20,8 @@ contract SparkConduitTestBase is DssTest {
     bytes32 constant ILK  = 'some-ilk';
     bytes32 constant ILK2 = 'some-ilk2';
 
+    address buffer = address(this);
+
     PoolMock     pool;
     PotMock      pot;
     RolesMock    roles;
@@ -38,13 +40,13 @@ contract SparkConduitTestBase is DssTest {
     event SetSubsidySpread(uint256 subsidySpread);
     event SetAssetEnabled(address indexed asset, bool enabled);
 
-    function setUp() public {
+    function setUp() public virtual {
         pool     = new PoolMock(vm);
         pot      = new PotMock();
         roles    = new RolesMock();
         registry = new RegistryMock();
 
-        registry.setBuffer(address(this));
+        registry.setBuffer(address(this));  // TODO: Update this
 
         token  = new MockERC20('Token', 'TKN', 18);
         atoken = pool.atoken();
@@ -58,10 +60,6 @@ contract SparkConduitTestBase is DssTest {
 
         conduit.setRoles(address(roles));
         conduit.setRegistry(address(registry));
-
-        // Mint us some of the token and approve the conduit
-        token.mint(address(this), 1000 ether);
-        token.approve(address(conduit), type(uint256).max);
     }
 
 }
@@ -104,6 +102,12 @@ contract SparkConduitModifierTests is SparkConduitTestBase {
 
 contract SparkConduitDepositTests is SparkConduitTestBase {
 
+    function setUp() public override {
+        super.setUp();
+        token.mint(address(this), 100 ether);
+        token.approve(address(conduit), type(uint256).max);
+    }
+
     function test_deposit_revert_not_enabled() public {
         vm.expectRevert("SparkConduit/asset-disabled");
         conduit.deposit(ILK, address(token), 100 ether);
@@ -112,7 +116,7 @@ contract SparkConduitDepositTests is SparkConduitTestBase {
     function test_deposit_revert_pending_withdrawal() public {
         conduit.setAssetEnabled(address(token), true);
         conduit.deposit(ILK, address(token), 100 ether);
-        deal(address(token), address(atoken), 0);  // Zero out the liquidity so we can request funds
+        token.burn(address(atoken), 100 ether);  // Burn all tokens so request can be made
         conduit.requestFunds(ILK, address(token), 40 ether);
 
         vm.expectRevert("SparkConduit/no-deposit-with-requested-shares");
@@ -121,29 +125,40 @@ contract SparkConduitDepositTests is SparkConduitTestBase {
 
     function test_deposit() public {
         conduit.setAssetEnabled(address(token), true);
-        pool.setLiquidityIndex(101_00 * RBPS);  // Induce a slight rounding error
 
-        assertEq(token.balanceOf(address(atoken)),         0);
-        assertEq(atoken.balanceOf(address(conduit)),       0);
-        assertEq(conduit.getDeposits(ILK, address(token)), 0);
-        assertEq(conduit.getTotalDeposits(address(token)), 0);
+        // 100 / 125% = 80 shares for 100 asset deposit
+        pool.setLiquidityIndex(125_00 * RBPS);
 
-        vm.expectEmit();
-        emit Deposit(ILK, address(token), address(this), 100 ether);
+        assertEq(token.balanceOf(buffer),           100 ether);
+        assertEq(token.balanceOf(address(atoken)),  0);
+
+        assertEq(atoken.balanceOf(address(conduit)), 0);
+        assertEq(atoken.totalSupply(),               0);
+
+        assertEq(conduit.shares(address(token), ILK), 0);
+        assertEq(conduit.totalShares(address(token)), 0);
+
         conduit.deposit(ILK, address(token), 100 ether);
 
-        assertEq(token.balanceOf(address(atoken)),   100 ether);
-        assertEq(atoken.balanceOf(address(conduit)), 100 ether);
+        assertEq(token.balanceOf(buffer),           0);
+        assertEq(token.balanceOf(address(atoken)),  100 ether);
 
-        assertApproxEqAbs(conduit.getDeposits(ILK, address(token)), 100 ether, 1);
-        assertApproxEqAbs(conduit.getTotalDeposits(address(token)), 100 ether, 1);
-        (uint256 deposits,) = conduit.getPosition(ILK, address(token));
-        assertApproxEqAbs(deposits, 100 ether, 1);
+        assertEq(atoken.balanceOf(address(conduit)), 80 ether);
+        assertEq(atoken.totalSupply(),               80 ether);
+
+        assertEq(conduit.shares(address(token), ILK), 80 ether);
+        assertEq(conduit.totalShares(address(token)), 80 ether);
     }
 
 }
 
 contract SparkConduitWithdrawTests is SparkConduitTestBase {
+
+    function setUp() public override {
+        super.setUp();
+        token.mint(address(this), 100 ether);
+        token.approve(address(conduit), type(uint256).max);
+    }
 
     function test_withdraw_single_partial_liquidity_available() public {
         conduit.setAssetEnabled(address(token), true);
