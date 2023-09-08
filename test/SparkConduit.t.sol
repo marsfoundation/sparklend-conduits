@@ -528,8 +528,8 @@ contract SparkConduitCancelFundRequestTests is SparkConduitTestBase {
         emit CancelFundRequest(ILK, address(token));
         conduit.cancelFundRequest(ILK, address(token));
 
-        assertEq(conduit.getRequestedFunds(ILK, address(token)), 0);
-        assertEq(conduit.getTotalRequestedFunds(address(token)), 0);
+        assertEq(conduit.requestedShares(address(token), ILK), 0);
+        assertEq(conduit.totalRequestedShares(address(token)), 0);
     }
 
 }
