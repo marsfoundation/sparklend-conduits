@@ -132,9 +132,7 @@ contract SparkConduitDepositTests is SparkConduitTestBase {
         conduit.deposit(ILK, address(token), 100 ether);
     }
 
-    // TODO: Multi-ilk deposit
     function test_deposit() public {
-
         assertEq(token.balanceOf(buffer),          100 ether);
         assertEq(token.balanceOf(address(atoken)), 0);
 
@@ -158,6 +156,48 @@ contract SparkConduitDepositTests is SparkConduitTestBase {
         assertEq(conduit.totalShares(address(token)), 80 ether);
     }
 
+    function test_deposit_multiIlk_increasingIndex() public {
+        assertEq(token.balanceOf(buffer),          100 ether);
+        assertEq(token.balanceOf(address(atoken)), 0);
+
+        assertEq(atoken.balanceOf(address(conduit)), 0);
+        assertEq(atoken.totalSupply(),               0);
+
+        assertEq(conduit.shares(address(token), ILK), 0);
+        assertEq(conduit.totalShares(address(token)), 0);
+
+        vm.expectEmit();
+        emit Deposit(ILK, address(token), buffer, 100 ether);
+        conduit.deposit(ILK, address(token), 100 ether);
+
+        assertEq(token.balanceOf(buffer),           0);
+        assertEq(token.balanceOf(address(atoken)),  100 ether);
+
+        assertEq(atoken.balanceOf(address(conduit)), 80 ether);
+        assertEq(atoken.totalSupply(),               80 ether);
+
+        assertEq(conduit.shares(address(token), ILK), 80 ether);
+        assertEq(conduit.totalShares(address(token)), 80 ether);
+
+        pool.setLiquidityIndex(160_00 * RBPS);  // 50 / 160% = 31.25 shares for 50 asset deposit
+
+        token.mint(buffer, 50 ether);  // For second deposit
+
+        vm.expectEmit();
+        emit Deposit(ILK2, address(token), buffer, 50 ether);
+        conduit.deposit(ILK2, address(token), 50 ether);
+
+        assertEq(token.balanceOf(buffer),           0);
+        assertEq(token.balanceOf(address(atoken)),  150 ether);
+
+        assertEq(atoken.balanceOf(address(conduit)), 111.25 ether);  // 80 + 31.25
+        assertEq(atoken.totalSupply(),               111.25 ether);
+
+        assertEq(conduit.shares(address(token), ILK),  80 ether);
+        assertEq(conduit.shares(address(token), ILK2), 31.25 ether);
+        assertEq(conduit.totalShares(address(token)),  111.25 ether);
+    }
+
 }
 
 contract SparkConduitWithdrawTests is SparkConduitTestBase {
@@ -168,6 +208,8 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
 
         conduit.deposit(ILK, address(token), 100 ether);
     }
+
+    // TODO: Add path-based testing once simplified logic is merged
 
     function test_withdraw_singleIlk_exactWithdraw() public {
         assertEq(token.balanceOf(buffer),          0);
@@ -563,7 +605,7 @@ contract SparkConduitRequestFundsTests is SparkConduitTestBase {
     }
 
     // TODO: Update liquidity index during test
-    function test_requestFunds() public {
+    function test_requestFund_multiIlk() public {
         token.mint(buffer, 50 ether);  // For second deposit
 
         conduit.deposit(ILK, address(token),  100 ether);
@@ -601,6 +643,36 @@ contract SparkConduitRequestFundsTests is SparkConduitTestBase {
         assertEq(conduit.totalRequestedShares(address(token)),  40 ether);
     }
 
+    function test_requestFunds_singleIlk_increaseIndex() public {
+        conduit.deposit(ILK, address(token),  100 ether);
+
+        deal(address(token), address(atoken), 0);
+
+        assertEq(conduit.requestedShares(address(token), ILK),  0);
+        assertEq(conduit.requestedShares(address(token), ILK2), 0);
+        assertEq(conduit.totalRequestedShares(address(token)),  0);
+
+        vm.expectEmit();
+        emit RequestFunds(ILK, address(token), 40 ether);
+        conduit.requestFunds(ILK, address(token), 40 ether);
+
+        assertEq(conduit.requestedShares(address(token), ILK),  32 ether);
+        assertEq(conduit.requestedShares(address(token), ILK2), 0);
+        assertEq(conduit.totalRequestedShares(address(token)),  32 ether);
+
+        pool.setLiquidityIndex(160_00 * RBPS);  // 100 / 160% = 62.5 shares for 100 asset deposit
+
+        // "Refreshing" the request with the same amount
+        // will reduce the amount of shares that will be requested
+        vm.expectEmit();
+        emit RequestFunds(ILK, address(token), 40 ether);
+        conduit.requestFunds(ILK, address(token), 40 ether);
+
+        assertEq(conduit.requestedShares(address(token), ILK),  25 ether);
+        assertEq(conduit.requestedShares(address(token), ILK2), 0);
+        assertEq(conduit.totalRequestedShares(address(token)),  25 ether);
+    }
+
 }
 
 contract SparkConduitCancelFundRequestTests is SparkConduitTestBase {
@@ -611,7 +683,7 @@ contract SparkConduitCancelFundRequestTests is SparkConduitTestBase {
     }
 
     function test_cancelFundRequest_revert_noActiveRequest() public {
-        conduit.deposit(ILK, address(token), 100 ether);
+        conduit.deposit(ILK, address(token),  100 ether);
         deal(address(token), address(atoken), 0);
 
         vm.expectRevert("SparkConduit/no-active-fund-requests");
