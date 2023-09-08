@@ -144,6 +144,8 @@ contract SparkConduitDepositTests is SparkConduitTestBase {
         assertEq(conduit.shares(address(token), ILK), 0);
         assertEq(conduit.totalShares(address(token)), 0);
 
+        vm.expectEmit();
+        emit Deposit(ILK, address(token), buffer, 100 ether);
         conduit.deposit(ILK, address(token), 100 ether);
 
         assertEq(token.balanceOf(buffer),           0);
