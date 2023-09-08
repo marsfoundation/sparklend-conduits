@@ -193,18 +193,18 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     /*** View Functions                                                                         ***/
     /**********************************************************************************************/
 
-    function maxDeposit(bytes32, address asset) public view returns (uint256 maxDeposit_) {
+    function maxDeposit(bytes32, address asset) public view override returns (uint256 maxDeposit_) {
         // Note: Purposefully ignoring any potential supply cap limits on Spark.
         //       This is because we assume the supply cap on this asset to be turned off.
         return enabled[asset] ? type(uint256).max : 0;
     }
 
-    function maxWithdraw(bytes32 ilk, address asset) public view returns (uint256 maxWithdraw_) {
+    function maxWithdraw(bytes32 ilk, address asset) public view override returns (uint256 maxWithdraw_) {
         return _min(_convertToAssets(asset, shares[asset][ilk]), getAvailableLiquidity(asset));
     }
 
     function getInterestData(address asset)
-        external override view returns (InterestData memory data)
+        external view override returns (InterestData memory data)
     {
         // Convert the DSR to a yearly APR
         uint256 dsr          = (PotLike(pot).dsr() - 1e27) * 365 days;
@@ -220,7 +220,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     }
 
     function getAssetData(address asset)
-        external override view returns (
+        external view override returns (
             bool _enabled,
             uint256 _totalDeposits,
             uint256 _totalWithdrawals
@@ -235,7 +235,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     }
 
     function getPosition(bytes32 ilk, address asset)
-        external override view returns (uint256 _deposits, uint256 _requestedShares)
+        external view override returns (uint256 _deposits, uint256 _requestedShares)
     {
         uint256 liquidityIndex = IPool(pool).getReserveNormalizedIncome(asset);
         return (
@@ -244,25 +244,25 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         );
     }
 
-    function getTotalDeposits(address asset) external override view returns (uint256) {
+    function getTotalDeposits(address asset) external view override returns (uint256) {
         return _convertToAssets(asset, totalShares[asset]);
     }
 
-    function getTotalRequestedFunds(address asset) external override view returns (uint256) {
+    function getTotalRequestedFunds(address asset) external view override returns (uint256) {
         return _convertToAssets(asset, totalRequestedShares[asset]);
     }
 
-    function getDeposits(bytes32 ilk, address asset) external override view returns (uint256) {
+    function getDeposits(bytes32 ilk, address asset) external view override returns (uint256) {
         return _convertToAssets(asset, shares[asset][ilk]);
     }
 
     function getRequestedFunds(bytes32 ilk, address asset)
-        external override view returns (uint256)
+        external view override returns (uint256)
     {
         return _convertToAssets(asset, requestedShares[asset][ilk]);
     }
 
-    function getAvailableLiquidity(address asset) public override view returns (uint256) {
+    function getAvailableLiquidity(address asset) public view override returns (uint256) {
         return IERC20(asset).balanceOf(IPool(pool).getReserveData(asset).aTokenAddress);
     }
 
