@@ -62,6 +62,7 @@ contract SparkConduitTestBase is DssTest {
 
         conduit.setRoles(address(roles));
         conduit.setRegistry(address(registry));
+        conduit.setAssetEnabled(address(token), true);
 
         vm.prank(buffer);
         token.approve(address(conduit), type(uint256).max);
@@ -113,12 +114,12 @@ contract SparkConduitDepositTests is SparkConduitTestBase {
     }
 
     function test_deposit_revert_notEnabled() public {
+        conduit.setAssetEnabled(address(token), false);
         vm.expectRevert("SparkConduit/asset-disabled");
         conduit.deposit(ILK, address(token), 100 ether);
     }
 
     function test_deposit_revert_pendingRequest() public {
-        conduit.setAssetEnabled(address(token), true);
         conduit.deposit(ILK, address(token), 100 ether);
         deal(address(token), address(atoken), 0);
         conduit.requestFunds(ILK, address(token), 40 ether);
@@ -129,8 +130,6 @@ contract SparkConduitDepositTests is SparkConduitTestBase {
 
     // TODO: Multi-ilk deposit
     function test_deposit() public {
-        conduit.setAssetEnabled(address(token), true);
-
         // 100 / 125% = 80 shares for 100 asset deposit
         pool.setLiquidityIndex(125_00 * RBPS);
 
@@ -165,7 +164,6 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
 
         pool.setLiquidityIndex(125_00 * RBPS);
 
-        conduit.setAssetEnabled(address(token), true);
         conduit.deposit(ILK, address(token), 100 ether);
     }
 
@@ -415,7 +413,6 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
 contract SparkConduitMaxViewFunctionTests is SparkConduitTestBase {
 
     function test_maxDeposit() public {
-        conduit.setAssetEnabled(address(token), true);
         assertEq(conduit.maxDeposit(ILK, address(token)), type(uint256).max);
     }
 
@@ -424,7 +421,6 @@ contract SparkConduitMaxViewFunctionTests is SparkConduitTestBase {
     }
 
     function test_maxWithdraw() public {
-        conduit.setAssetEnabled(address(token), true);
         pool.setLiquidityIndex(200_00 * RBPS);
 
         assertEq(conduit.maxWithdraw(ILK, address(token)), 0);
@@ -449,7 +445,6 @@ contract SparkConduitRequestFundsTests is SparkConduitTestBase {
     }
 
     function test_requestFunds_revert_nonZeroLiquidity() public {
-        conduit.setAssetEnabled(address(token), true);
         pool.setLiquidityIndex(200_00 * RBPS);
         conduit.deposit(ILK, address(token), 100 ether);
 
@@ -459,7 +454,6 @@ contract SparkConduitRequestFundsTests is SparkConduitTestBase {
 
     // TODO: Boundary condition
     function test_requestFunds_revert_amountTooLarge() public {
-        conduit.setAssetEnabled(address(token), true);
         pool.setLiquidityIndex(200_00 * RBPS);
         conduit.deposit(ILK, address(token), 100 ether);
         deal(address(token), address(atoken), 0);
@@ -470,7 +464,6 @@ contract SparkConduitRequestFundsTests is SparkConduitTestBase {
 
     // TODO: Update liquidity index during test
     function test_requestFunds() public {
-        conduit.setAssetEnabled(address(token), true);
         pool.setLiquidityIndex(125_00 * RBPS);
 
         token.mint(buffer, 50 ether);  // For second deposit
@@ -520,7 +513,6 @@ contract SparkConduitCancelFundRequestTests is SparkConduitTestBase {
     }
 
     function test_cancelFundRequest_revert_noActiveRequest() public {
-        conduit.setAssetEnabled(address(token), true);
         pool.setLiquidityIndex(200_00 * RBPS);
         conduit.deposit(ILK, address(token), 100 ether);
         deal(address(token), address(atoken), 0);
@@ -530,7 +522,6 @@ contract SparkConduitCancelFundRequestTests is SparkConduitTestBase {
     }
 
     function test_cancelFundRequest() public {
-        conduit.setAssetEnabled(address(token), true);
         pool.setLiquidityIndex(125_00 * RBPS);
         conduit.deposit(ILK, address(token), 100 ether);
         deal(address(token), address(atoken), 0);
@@ -555,7 +546,6 @@ contract SparkConduitGettersTests is SparkConduitTestBase {
         pool.setLiquidityIndex(200_00 * RBPS);
         conduit.setSubsidySpread(50 * RBPS);
         pot.setDSR((350 * RBPS) / SECONDS_PER_YEAR + RAY);
-        conduit.setAssetEnabled(address(token), true);
         token.mint(buffer, 100 ether);
         conduit.deposit(ILK, address(token), 100 ether);
         deal(address(token), address(atoken), 0);
@@ -603,6 +593,9 @@ contract SparkConduitAdminSetterTests is SparkConduitTestBase {
     }
 
     function test_setAssetEnabled() public {
+        // Starting state
+        conduit.setAssetEnabled(address(token), false);
+
         (bool enabled,,) = conduit.getAssetData(address(token));
         assertEq(enabled, false);
         assertEq(token.allowance(address(conduit), address(pool)), 0);
