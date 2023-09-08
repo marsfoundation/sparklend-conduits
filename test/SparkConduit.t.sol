@@ -462,6 +462,56 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
         assertEq(conduit.totalShares(address(token)),  8.75 ether);
     }
 
+    function test_withdraw_multiIlk_decreasingIndex() public {
+        token.mint(buffer, 50 ether);
+        conduit.deposit(ILK2, address(token), 50 ether);
+
+        // NOTE: Excluding requestedShares assertions as they are proven not
+        //       to change by the above tests.
+
+        assertEq(token.balanceOf(buffer),          0);
+        assertEq(token.balanceOf(address(atoken)), 150 ether);
+
+        assertEq(atoken.balanceOf(address(conduit)), 120 ether);
+        assertEq(atoken.totalSupply(),               120 ether);
+
+        assertEq(conduit.shares(address(token), ILK),  80 ether);
+        assertEq(conduit.shares(address(token), ILK2), 40 ether);
+        assertEq(conduit.totalShares(address(token)),  120 ether);
+
+        // type(uint256).max yields the same underlying funds because of same index
+        vm.expectEmit();
+        emit Withdraw(ILK, address(token), buffer, 100 ether);
+        assertEq(conduit.withdraw(ILK, address(token), type(uint256).max), 100 ether);
+
+        assertEq(token.balanceOf(buffer),          100 ether);
+        assertEq(token.balanceOf(address(atoken)), 50 ether);
+
+        assertEq(atoken.balanceOf(address(conduit)), 40 ether);
+        assertEq(atoken.totalSupply(),               40 ether);
+
+        assertEq(conduit.shares(address(token), ILK),  0);
+        assertEq(conduit.shares(address(token), ILK2), 40 ether);
+        assertEq(conduit.totalShares(address(token)),  40 ether);
+
+        // This mimics a loss in the pool. Since the liquidity hasn't changed, this means that the
+        // 40 shares that ilk2 has will not be able to withdraw the full amount of funds they
+        // originally deposited.
+        pool.setLiquidityIndex(80_00 * RBPS);  // 100 / 80% = 125 shares for 100 asset deposit
+
+        assertEq(conduit.withdraw(ILK2, address(token), type(uint256).max), 32 ether);
+
+        assertEq(token.balanceOf(buffer),          132 ether);
+        assertEq(token.balanceOf(address(atoken)), 18 ether);
+
+        assertEq(atoken.balanceOf(address(conduit)), 0);
+        assertEq(atoken.totalSupply(),               0);
+
+        assertEq(conduit.shares(address(token), ILK),  0);
+        assertEq(conduit.shares(address(token), ILK2), 0);
+        assertEq(conduit.totalShares(address(token)),  0);
+    }
+
 }
 
 contract SparkConduitMaxViewFunctionTests is SparkConduitTestBase {
