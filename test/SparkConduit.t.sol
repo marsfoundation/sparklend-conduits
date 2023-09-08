@@ -557,31 +557,35 @@ contract SparkConduitGettersTests is SparkConduitTestBase {
 
 contract SparkConduitAdminSetterTests is SparkConduitTestBase {
 
-    function test_setRoles() public {
-        address newRoles = makeAddr("newRoles");
+    address SET_ADDRESS = makeAddr("set-address");
 
+    function test_setRoles() public {
         assertEq(conduit.roles(), address(roles));
+
         vm.expectEmit();
-        emit SetRoles(newRoles);
-        conduit.setRoles(newRoles);
-        assertEq(conduit.roles(), newRoles);
+        emit SetRoles(SET_ADDRESS);
+        conduit.setRoles(SET_ADDRESS);
+
+        assertEq(conduit.roles(), SET_ADDRESS);
     }
 
     function test_setRegistry() public {
-        address newRegistry = makeAddr("newRegistry");
-
         assertEq(conduit.registry(), address(registry));
+
         vm.expectEmit();
-        emit SetRegistry(newRegistry);
-        conduit.setRegistry(newRegistry);
-        assertEq(conduit.registry(), newRegistry);
+        emit SetRegistry(SET_ADDRESS);
+        conduit.setRegistry(SET_ADDRESS);
+
+        assertEq(conduit.registry(), SET_ADDRESS);
     }
 
     function test_setSubsidySpread() public {
         assertEq(conduit.subsidySpread(), 0);
+
         vm.expectEmit();
         emit SetSubsidySpread(50 * RBPS);
         conduit.setSubsidySpread(50 * RBPS);
+
         assertEq(conduit.subsidySpread(), 50 * RBPS);
     }
 
@@ -590,27 +594,33 @@ contract SparkConduitAdminSetterTests is SparkConduitTestBase {
         conduit.setAssetEnabled(address(token), false);
 
         (bool enabled,,) = conduit.getAssetData(address(token));
-        assertEq(enabled, false);
-        assertEq(token.allowance(address(conduit), address(pool)), 0);
+
+        assertEq(enabled,                                false);
         assertEq(conduit.isAssetEnabled(address(token)), false);
+
+        assertEq(token.allowance(address(conduit), address(pool)), 0);
 
         vm.expectEmit();
         emit SetAssetEnabled(address(token), true);
         conduit.setAssetEnabled(address(token), true);
+
         (enabled,,) = conduit.getAssetData(address(token));
 
-        assertEq(enabled, true);
+        assertEq(enabled,                                true);
         assertEq(conduit.isAssetEnabled(address(token)), true);
 
         assertEq(token.allowance(address(conduit), address(pool)), type(uint256).max);
+
         vm.expectEmit();
         emit SetAssetEnabled(address(token), false);
         conduit.setAssetEnabled(address(token), false);
 
         (enabled,,) = conduit.getAssetData(address(token));
-        assertEq(enabled, false);
-        assertEq(token.allowance(address(conduit), address(pool)), 0);
+
+        assertEq(enabled,                                false);
         assertEq(conduit.isAssetEnabled(address(token)), false);
+
+        assertEq(token.allowance(address(conduit), address(pool)), 0);
     }
 
 }
