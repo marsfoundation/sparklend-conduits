@@ -851,8 +851,8 @@ contract SparkConduitAdminSetterTests is SparkConduitTestBase {
 
         (bool enabled,,) = conduit.getAssetData(address(token));
 
-        assertEq(enabled,                                false);
-        assertEq(conduit.isAssetEnabled(address(token)), false);
+        assertEq(enabled,                         false);
+        assertEq(conduit.enabled(address(token)), false);
 
         assertEq(token.allowance(address(conduit), address(pool)), 0);
 
@@ -862,8 +862,8 @@ contract SparkConduitAdminSetterTests is SparkConduitTestBase {
 
         (enabled,,) = conduit.getAssetData(address(token));
 
-        assertEq(enabled,                                true);
-        assertEq(conduit.isAssetEnabled(address(token)), true);
+        assertEq(enabled,                         true);
+        assertEq(conduit.enabled(address(token)), true);
 
         assertEq(token.allowance(address(conduit), address(pool)), type(uint256).max);
 
@@ -873,8 +873,8 @@ contract SparkConduitAdminSetterTests is SparkConduitTestBase {
 
         (enabled,,) = conduit.getAssetData(address(token));
 
-        assertEq(enabled,                                false);
-        assertEq(conduit.isAssetEnabled(address(token)), false);
+        assertEq(enabled,                         false);
+        assertEq(conduit.enabled(address(token)), false);
 
         assertEq(token.allowance(address(conduit), address(pool)), 0);
     }
