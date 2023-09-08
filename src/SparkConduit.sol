@@ -130,12 +130,12 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     }
 
     function withdraw(bytes32 ilk, address asset, uint256 maxAmount)
-        external ilkAuth(ilk) returns (uint256 withdrawAmount)
+        external ilkAuth(ilk) returns (uint256 amount)
     {
         // Constrain the amount that can be withdrawn by the max amount
-        withdrawAmount = _min(maxAmount, maxWithdraw(ilk, asset));
+        amount = _min(maxAmount, maxWithdraw(ilk, asset));
 
-        uint256 withdrawalShares = _convertToShares(asset, withdrawAmount);
+        uint256 withdrawalShares = _convertToShares(asset, amount);
 
         // Reduce share accounting by the amount withdrawn
         shares[asset][ilk] -= withdrawalShares;
@@ -153,9 +153,9 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
 
         address destination = RegistryLike(registry).buffers(ilk);
 
-        IPool(pool).withdraw(asset, withdrawAmount, destination);
+        IPool(pool).withdraw(asset, amount, destination);
 
-        emit Withdraw(ilk, asset, destination, withdrawAmount);
+        emit Withdraw(ilk, asset, destination, amount);
     }
 
     function requestFunds(bytes32 ilk, address asset, uint256 amount) external ilkAuth(ilk) {
