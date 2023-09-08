@@ -112,12 +112,12 @@ contract SparkConduitDepositTests is SparkConduitTestBase {
         token.mint(buffer, 100 ether);
     }
 
-    function test_deposit_revert_not_enabled() public {
+    function test_deposit_revert_notEnabled() public {
         vm.expectRevert("SparkConduit/asset-disabled");
         conduit.deposit(ILK, address(token), 100 ether);
     }
 
-    function test_deposit_revert_pending_withdrawal() public {
+    function test_deposit_revert_pendingRequest() public {
         conduit.setAssetEnabled(address(token), true);
         conduit.deposit(ILK, address(token), 100 ether);
         deal(address(token), address(atoken), 0);
@@ -127,6 +127,7 @@ contract SparkConduitDepositTests is SparkConduitTestBase {
         conduit.deposit(ILK, address(token), 100 ether);
     }
 
+    // TODO: Multi-ilk deposit
     function test_deposit() public {
         conduit.setAssetEnabled(address(token), true);
 
@@ -168,7 +169,7 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
         conduit.deposit(ILK, address(token), 100 ether);
     }
 
-    function test_withdraw_single_partial_liquidity_available() public {  // 200% is a more round number to avoid having to deal with rounding errors
+    function test_withdraw_singleIlk_exactWithdraw() public {
         assertEq(token.balanceOf(buffer),          0);
         assertEq(token.balanceOf(address(atoken)), 100 ether);
 
@@ -198,7 +199,7 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
         assertEq(conduit.totalRequestedShares(address(token)), 0);
     }
 
-    function test_withdraw_single_all_liquidity_available() public {
+    function test_withdraw_singleIlk_maxUint() public {
         assertEq(token.balanceOf(buffer),           0);
         assertEq(token.balanceOf(address(atoken)),  100 ether);
 
@@ -228,7 +229,7 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
         assertEq(conduit.totalRequestedShares(address(token)), 0);
     }
 
-    function test_withdraw_multi_partial_liquidity_available() public {
+    function test_withdraw_multiIlk_exactWithdraw() public {
         token.mint(buffer, 50 ether);
         conduit.deposit(ILK2, address(token), 50 ether);
 
@@ -265,7 +266,8 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
         assertEq(conduit.totalRequestedShares(address(token)),  0);
     }
 
-    function test_withdraw_multi_using_max_uint() public {
+    // TODO: Partial liquidity
+    function test_withdraw_multiIlk_maxUint() public {
         token.mint(buffer, 50 ether);
         conduit.deposit(ILK2, address(token), 50 ether);
 
@@ -302,7 +304,7 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
         assertEq(conduit.totalRequestedShares(address(token)),  0);
     }
 
-    function test_withdraw_pending_withdrawal_partial_fill() public {
+    function test_withdraw_singleIlk_requestFunds_partialFill() public {
         // Zero out liquidity so request can be made
         deal(address(token), address(atoken), 0);
         conduit.requestFunds(ILK, address(token), 40 ether);
@@ -339,7 +341,7 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
         assertEq(conduit.totalRequestedShares(address(token)), 12 ether);
     }
 
-    function test_withdraw_pending_withdrawal_complete_fill() public {
+    function test_withdraw_singleIlk_requestFunds_completeFill() public {
         // Zero out liquidity so request can be made
         deal(address(token), address(atoken), 0);
         conduit.requestFunds(ILK, address(token), 40 ether);
@@ -376,7 +378,7 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
         assertEq(conduit.totalRequestedShares(address(token)), 0);
     }
 
-    function test_withdraw_max_uint_limited_liquidity() public {
+    function test_withdraw_singleIlk_maxUint_partialLiquidity() public {
         deal(address(token), address(atoken), 40 ether);
 
         assertEq(token.balanceOf(buffer),          0);
@@ -417,7 +419,7 @@ contract SparkConduitMaxViewFunctionTests is SparkConduitTestBase {
         assertEq(conduit.maxDeposit(ILK, address(token)), type(uint256).max);
     }
 
-    function test_maxDeposit_unsupported_asset() public {
+    function test_maxDeposit_unsupportedAsset() public {
         assertEq(conduit.maxDeposit(ILK, makeAddr("some-addr")), 0);
     }
 
@@ -446,7 +448,7 @@ contract SparkConduitRequestFundsTests is SparkConduitTestBase {
         token.mint(buffer, 100 ether);
     }
 
-    function test_requestFunds_revert_non_zero_liquidity() public {
+    function test_requestFunds_revert_nonZeroLiquidity() public {
         conduit.setAssetEnabled(address(token), true);
         pool.setLiquidityIndex(200_00 * RBPS);
         conduit.deposit(ILK, address(token), 100 ether);
@@ -456,7 +458,7 @@ contract SparkConduitRequestFundsTests is SparkConduitTestBase {
     }
 
     // TODO: Boundary condition
-    function test_requestFunds_revert_amount_too_large() public {
+    function test_requestFunds_revert_amountTooLarge() public {
         conduit.setAssetEnabled(address(token), true);
         pool.setLiquidityIndex(200_00 * RBPS);
         conduit.deposit(ILK, address(token), 100 ether);
@@ -517,7 +519,7 @@ contract SparkConduitCancelFundRequestTests is SparkConduitTestBase {
         token.mint(buffer, 100 ether);
     }
 
-    function test_cancelFundRequest_revert_no_withdrawal() public {
+    function test_cancelFundRequest_revert_noActiveRequest() public {
         conduit.setAssetEnabled(address(token), true);
         pool.setLiquidityIndex(200_00 * RBPS);
         conduit.deposit(ILK, address(token), 100 ether);
