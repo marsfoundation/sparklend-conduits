@@ -130,22 +130,22 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     }
 
     function withdraw(bytes32 ilk, address asset, uint256 maxAmount)
-        external ilkAuth(ilk) returns (uint256 amount)
+        external ilkAuth(ilk) returns (uint256 withdrawAmount)
     {
         // Constrain the amount that can be withdrawn by the max amount
-        amount = _min(maxAmount, maxWithdraw(ilk, asset));
+        withdrawAmount = _min(maxAmount, maxWithdraw(ilk, asset));
 
-        uint256 removedShares = _convertToShares(asset, amount);
+        uint256 withdrawalShares = _convertToShares(asset, withdrawAmount);
 
         // Reduce share accounting by the amount withdrawn
-        shares[asset][ilk] -= removedShares;
-        totalShares[asset] -= removedShares;
+        shares[asset][ilk] -= withdrawalShares;
+        totalShares[asset] -= withdrawalShares;
 
-        uint256 withdrawals = requestedShares[asset][ilk];
+        uint256 currentRequestedShares = requestedShares[asset][ilk];
 
-        if (withdrawals > 0) {
+        if (currentRequestedShares > 0) {
             // Reduce pending withdrawals by the min between amount pending and amount withdrawn
-            uint256 requestedSharesToRemove = _min(withdrawals, removedShares);
+            uint256 requestedSharesToRemove = _min(withdrawalShares, currentRequestedShares);
 
             requestedShares[asset][ilk] -= requestedSharesToRemove;
             totalRequestedShares[asset] -= requestedSharesToRemove;
@@ -153,9 +153,9 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
 
         address destination = RegistryLike(registry).buffers(ilk);
 
-        IPool(pool).withdraw(asset, amount, destination);
+        IPool(pool).withdraw(asset, withdrawAmount, destination);
 
-        emit Withdraw(ilk, asset, destination, amount);
+        emit Withdraw(ilk, asset, destination, withdrawAmount);
     }
 
     function requestFunds(bytes32 ilk, address asset, uint256 amount) external ilkAuth(ilk) {
@@ -178,11 +178,11 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     }
 
     function cancelFundRequest(bytes32 ilk, address asset) external ilkAuth(ilk) {
-        uint256 withdrawals = requestedShares[asset][ilk];
-        require(withdrawals > 0, "SparkConduit/no-active-fund-requests");
+        uint256 requestedShares_ = requestedShares[asset][ilk];
+        require(requestedShares_ > 0, "SparkConduit/no-active-fund-requests");
 
-        requestedShares[asset][ilk] -= withdrawals;
-        totalRequestedShares[asset] -= withdrawals;
+        requestedShares[asset][ilk] -= requestedShares_;
+        totalRequestedShares[asset] -= requestedShares_;
 
         emit CancelFundRequest(ilk, asset);
     }
