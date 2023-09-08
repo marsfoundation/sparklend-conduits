@@ -89,6 +89,43 @@ interface ISparkConduit is IAllocatorConduit {
      */
     function subsidySpread() external view returns (uint256);
 
+    /**
+     *  @notice Determines whether a given asset is whitelisted or not.
+     *  @param  asset The address of the asset.
+     *  @return A boolean representing the enabled state.
+     */
+    function enabled(address asset) external view returns (bool);
+
+    /**
+     *  @notice Get the total number of shares that are held custody for a given asset.
+     *  @param  asset The address of the asset.
+     *  @return The total number of shares for the asset.
+     */
+    function totalShares(address asset) external view returns (uint256);
+
+    /**
+     *  @notice Get the total number of requested shares for a given asset.
+     *  @param  asset The address of the asset.
+     *  @return The total number of requested shares for the asset.
+     */
+    function totalRequestedShares(address asset) external view returns (uint256);
+
+    /**
+     *  @notice Get the number of shares a given ilk has ownership of for a given asset.
+     *  @param asset The address of the asset.
+     *  @param ilk   The unique identifier for a subDAO.
+     *  @return The number of shares for the asset and ilk.
+     */
+    function shares(address asset, bytes32 ilk) external view returns (uint256);
+
+    /**
+     *  @notice Get the number of requested shares for a specific asset and ilk.
+     *  @param  asset The address of the asset.
+     *  @param  ilk   The unique identifier for a subDAO.
+     *  @return The number of requested shares for the asset and ilk.
+     */
+    function requestedShares(address asset, bytes32 ilk) external view returns (uint256);
+
     /**********************************************************************************************/
     /*** External Functions                                                                     ***/
     /**********************************************************************************************/
@@ -151,6 +188,12 @@ interface ISparkConduit is IAllocatorConduit {
             uint256 totalDeposits,
             uint256 totalRequestedFunds
         );
+
+    /**
+     *  @notice Returns the amount of available liquidity in the Spark pool for a given asset.
+     *  @return The balance of tokens in the asset's reserve's aToken address.
+     */
+    function getAvailableLiquidity(address asset) external view returns (uint256);
 
     /**
      *  @notice Gets the total deposits of an asset.
