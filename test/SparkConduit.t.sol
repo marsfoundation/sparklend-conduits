@@ -66,6 +66,10 @@ contract SparkConduitTestBase is DssTest {
 
         vm.prank(buffer);
         token.approve(address(conduit), type(uint256).max);
+
+        // Set default liquidity index to be greater than 1:1
+        // 100 / 125% = 80 shares for 100 asset deposit
+        pool.setLiquidityIndex(125_00 * RBPS);
     }
 
 }
@@ -130,8 +134,6 @@ contract SparkConduitDepositTests is SparkConduitTestBase {
 
     // TODO: Multi-ilk deposit
     function test_deposit() public {
-        // 100 / 125% = 80 shares for 100 asset deposit
-        pool.setLiquidityIndex(125_00 * RBPS);
 
         assertEq(token.balanceOf(buffer),          100 ether);
         assertEq(token.balanceOf(address(atoken)), 0);
@@ -161,8 +163,6 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
     function setUp() public override {
         super.setUp();
         token.mint(buffer, 100 ether);
-
-        pool.setLiquidityIndex(125_00 * RBPS);
 
         conduit.deposit(ILK, address(token), 100 ether);
     }
@@ -421,8 +421,6 @@ contract SparkConduitMaxViewFunctionTests is SparkConduitTestBase {
     }
 
     function test_maxWithdraw() public {
-        pool.setLiquidityIndex(200_00 * RBPS);
-
         assertEq(conduit.maxWithdraw(ILK, address(token)), 0);
 
         token.mint(buffer, 100 ether);
@@ -445,7 +443,6 @@ contract SparkConduitRequestFundsTests is SparkConduitTestBase {
     }
 
     function test_requestFunds_revert_nonZeroLiquidity() public {
-        pool.setLiquidityIndex(200_00 * RBPS);
         conduit.deposit(ILK, address(token), 100 ether);
 
         vm.expectRevert("SparkConduit/non-zero-liquidity");
@@ -454,7 +451,6 @@ contract SparkConduitRequestFundsTests is SparkConduitTestBase {
 
     // TODO: Boundary condition
     function test_requestFunds_revert_amountTooLarge() public {
-        pool.setLiquidityIndex(200_00 * RBPS);
         conduit.deposit(ILK, address(token), 100 ether);
         deal(address(token), address(atoken), 0);
 
@@ -464,8 +460,6 @@ contract SparkConduitRequestFundsTests is SparkConduitTestBase {
 
     // TODO: Update liquidity index during test
     function test_requestFunds() public {
-        pool.setLiquidityIndex(125_00 * RBPS);
-
         token.mint(buffer, 50 ether);  // For second deposit
 
         conduit.deposit(ILK, address(token),  100 ether);
@@ -513,7 +507,6 @@ contract SparkConduitCancelFundRequestTests is SparkConduitTestBase {
     }
 
     function test_cancelFundRequest_revert_noActiveRequest() public {
-        pool.setLiquidityIndex(200_00 * RBPS);
         conduit.deposit(ILK, address(token), 100 ether);
         deal(address(token), address(atoken), 0);
 
@@ -522,7 +515,6 @@ contract SparkConduitCancelFundRequestTests is SparkConduitTestBase {
     }
 
     function test_cancelFundRequest() public {
-        pool.setLiquidityIndex(125_00 * RBPS);
         conduit.deposit(ILK, address(token), 100 ether);
         deal(address(token), address(atoken), 0);
         conduit.requestFunds(ILK, address(token), 40 ether);
@@ -543,7 +535,6 @@ contract SparkConduitCancelFundRequestTests is SparkConduitTestBase {
 contract SparkConduitGettersTests is SparkConduitTestBase {
 
     function test_getInterestData() public {
-        pool.setLiquidityIndex(200_00 * RBPS);
         conduit.setSubsidySpread(50 * RBPS);
         pot.setDSR((350 * RBPS) / SECONDS_PER_YEAR + RAY);
         token.mint(buffer, 100 ether);
