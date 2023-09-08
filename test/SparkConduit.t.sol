@@ -554,6 +554,88 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
         assertEq(conduit.totalShares(address(token)),  0);
     }
 
+    function test_withdraw_singleIlk_increasedIndexAfterRequest_completeWithdrawal() public {
+        // Zero out liquidity so request can be made
+        deal(address(token), address(atoken), 0);
+        conduit.requestFunds(ILK, address(token), 40 ether);
+
+        // Add more than enough liquidity to demonstrate how additional liquidity is handled
+        deal(address(token), address(atoken), 200 ether);
+
+        pool.setLiquidityIndex(160_00 * RBPS);
+
+        assertEq(token.balanceOf(buffer),           0);
+        assertEq(token.balanceOf(address(atoken)),  200 ether);
+
+        assertEq(atoken.balanceOf(address(conduit)), 80 ether);
+        assertEq(atoken.totalSupply(),               80 ether);
+
+        assertEq(conduit.shares(address(token), ILK), 80 ether);
+        assertEq(conduit.totalShares(address(token)), 80 ether);
+
+        // 40 asset requested at 1.25 index = 32 shares
+        assertEq(conduit.requestedShares(address(token), ILK), 32 ether);
+        assertEq(conduit.totalRequestedShares(address(token)), 32 ether);
+
+        vm.expectEmit();
+        emit Withdraw(ILK, address(token), buffer, 128 ether);
+        assertEq(conduit.withdraw(ILK, address(token), type(uint256).max), 128 ether);
+
+        assertEq(token.balanceOf(buffer),           128 ether);
+        assertEq(token.balanceOf(address(atoken)),  72 ether);
+
+        assertEq(atoken.balanceOf(address(conduit)), 0);
+        assertEq(atoken.totalSupply(),               0);
+
+        assertEq(conduit.shares(address(token), ILK), 0);
+        assertEq(conduit.totalShares(address(token)), 0);
+
+        // 40 asset requested at 1.25 index = 32 shares
+        assertEq(conduit.requestedShares(address(token), ILK), 0);
+        assertEq(conduit.totalRequestedShares(address(token)), 0);
+    }
+
+    function test_withdraw_singleIlk_increasedIndexAfterRequest_requestedSharesRemaining() public {
+        // Zero out liquidity so request can be made
+        deal(address(token), address(atoken), 0);
+        conduit.requestFunds(ILK, address(token), 40 ether);
+
+        // Add exact amount
+        deal(address(token), address(atoken), 40 ether);
+
+        pool.setLiquidityIndex(160_00 * RBPS);
+
+        assertEq(token.balanceOf(buffer),           0);
+        assertEq(token.balanceOf(address(atoken)),  40 ether);
+
+        assertEq(atoken.balanceOf(address(conduit)), 80 ether);
+        assertEq(atoken.totalSupply(),               80 ether);
+
+        assertEq(conduit.shares(address(token), ILK), 80 ether);
+        assertEq(conduit.totalShares(address(token)), 80 ether);
+
+        // 40 asset requested at 1.25 index = 32 shares
+        assertEq(conduit.requestedShares(address(token), ILK), 32 ether);
+        assertEq(conduit.totalRequestedShares(address(token)), 32 ether);
+
+        vm.expectEmit();
+        emit Withdraw(ILK, address(token), buffer, 40 ether);
+        assertEq(conduit.withdraw(ILK, address(token), type(uint256).max), 40 ether);
+
+        assertEq(token.balanceOf(buffer),           40 ether);
+        assertEq(token.balanceOf(address(atoken)),  0);
+
+        assertEq(atoken.balanceOf(address(conduit)), 55 ether);
+        assertEq(atoken.totalSupply(),               55 ether);
+
+        assertEq(conduit.shares(address(token), ILK), 55 ether);
+        assertEq(conduit.totalShares(address(token)), 55 ether);
+
+        // 40 ether at 1.6 index = 25 shares, 32 requested - 25 burned = 7 remaining
+        assertEq(conduit.requestedShares(address(token), ILK), 7 ether);
+        assertEq(conduit.totalRequestedShares(address(token)), 7 ether);
+    }
+
 }
 
 contract SparkConduitMaxViewFunctionTests is SparkConduitTestBase {
