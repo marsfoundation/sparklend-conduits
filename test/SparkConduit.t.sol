@@ -7,7 +7,7 @@ import { MockERC20 } from 'erc20-helpers/MockERC20.sol';
 
 import { UpgradeableProxy } from 'upgradeable-proxy/UpgradeableProxy.sol';
 
-import { SparkConduit, IInterestRateDataSource } from '../src/SparkConduit.sol';
+import { SparkConduit, IInterestRateDataSource } from 'src/SparkConduit.sol';
 
 import { PoolMock, PotMock, RolesMock, RegistryMock } from "./Mocks.sol";
 
@@ -50,7 +50,7 @@ contract SparkConduitTestBase is DssTest {
         atoken = pool.atoken();
 
         UpgradeableProxy proxy = new UpgradeableProxy();
-        SparkConduit     impl  = new SparkConduit(address(pool),address(pot));
+        SparkConduit     impl  = new SparkConduit(address(pool), address(pot));
 
         proxy.setImplementation(address(impl));
 

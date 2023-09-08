@@ -8,9 +8,9 @@ import { DataTypes } from 'aave-v3-core/contracts/protocol/libraries/types/DataT
 import { MockERC20 } from 'erc20-helpers/MockERC20.sol';
 
 import { DaiInterestRateStrategy, IInterestRateDataSource, DataTypes }
-    from '../src/DaiInterestRateStrategy.sol';
+    from 'src/DaiInterestRateStrategy.sol';
 
-import { SparkConduit, IERC20 } from '../src/SparkConduit.sol';
+import { SparkConduit, IERC20 } from 'src/SparkConduit.sol';
 
 contract DaiMock {
 
