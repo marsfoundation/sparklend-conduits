@@ -130,7 +130,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     }
 
     function withdraw(bytes32 ilk, address asset, uint256 maxAmount)
-        external ilkAuth(ilk) returns (uint256 amount)
+        public ilkAuth(ilk) returns (uint256 amount)
     {
         // Constrain the amount that can be withdrawn by the max amount
         amount = _min(maxAmount, maxWithdraw(ilk, asset));
@@ -158,8 +158,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         emit Withdraw(ilk, asset, destination, amount);
     }
 
-    function requestFunds(bytes32 ilk, address asset, uint256 amount) external ilkAuth(ilk) {
-        // TODO: Update this to avoid DoS vector
+    function requestFunds(bytes32 ilk, address asset, uint256 amount) public ilkAuth(ilk) {
         require(getAvailableLiquidity(asset) == 0, "SparkConduit/non-zero-liquidity");
 
         uint256 sharesToRequest = _convertToShares(asset, amount);
@@ -175,6 +174,24 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
             = totalRequestedShares[asset] + sharesToRequest - prevRequestedShares;
 
         emit RequestFunds(ilk, asset, amount);
+    }
+
+    function withdrawAndRequestFunds(bytes32 ilk, address asset, uint256 requestAmount)
+        external ilkAuth(ilk) returns (uint256 amountWithdrawn, uint256 requestedFunds)
+    {
+        uint256 availableLiquidity = getAvailableLiquidity(asset);
+
+        // If there is liquidity available, withdraw it before requesting.
+        if (availableLiquidity != 0) {
+            uint256 amountToWithdraw = _min(availableLiquidity, requestAmount);
+            amountWithdrawn = withdraw(ilk, asset, amountToWithdraw);
+        }
+
+        // If the withdrawal didn't satisfy the full amount, request the remainder.
+        if (requestAmount > amountWithdrawn) {
+            requestedFunds = requestAmount - amountWithdrawn;
+            requestFunds(ilk, asset, requestedFunds);
+        }
     }
 
     function cancelFundRequest(bytes32 ilk, address asset) external ilkAuth(ilk) {
