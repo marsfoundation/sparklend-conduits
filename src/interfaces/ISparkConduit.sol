@@ -153,13 +153,6 @@ interface ISparkConduit is IAllocatorConduit {
         );
 
     /**
-     *  @notice Checks if an asset is enabled or not.
-     *  @param  asset The address of the asset.
-     *  @return Boolean value indicating whether the asset is enabled.
-     */
-    function isAssetEnabled(address asset) external view returns (bool);
-
-    /**
      *  @notice Gets the total deposits of an asset.
      *  @param  asset The address of the asset.
      *  @return The total amount of deposits for the asset.
@@ -175,13 +168,13 @@ interface ISparkConduit is IAllocatorConduit {
 
     /**
      *  @notice Returns the position of a ilk for an asset.
-     *  @param  ilk                The ilk for which to return the position.
-     *  @param  asset              The asset for which to return the position.
-     *  @return deposits           The total deposits for the ilk.
-     *  @return pendingWithdrawals The total pending requested funds for the ilk.
+     *  @param  ilk            The ilk for which to return the position.
+     *  @param  asset          The asset for which to return the position.
+     *  @return deposits       The total deposits for the ilk.
+     *  @return requestedFunds The total pending requested funds for the ilk.
      */
     function getPosition(bytes32 ilk, address asset)
-        external view returns (uint256 deposits, uint256 pendingWithdrawals);
+        external view returns (uint256 deposits, uint256 requestedFunds);
 
     /**
      *  @notice Gets the deposits for a given ilk and asset.
