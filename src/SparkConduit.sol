@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.13;
 
+import 'dss-test/DssTest.sol';
+
 import { IPool }      from 'aave-v3-core/contracts/interfaces/IPool.sol';
 import { WadRayMath } from 'aave-v3-core/contracts/protocol/libraries/math/WadRayMath.sol';
 
@@ -226,8 +228,8 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         );
     }
 
-    function getPosition(bytes32 ilk, address asset)
-        external view returns (uint256 _deposits, uint256 _requestedShares)
+    function getPosition(address asset, bytes32 ilk)
+        external view returns (uint256 deposits, uint256 requestedFunds)
     {
         uint256 liquidityIndex = IPool(pool).getReserveNormalizedIncome(asset);
         return (
@@ -244,11 +246,11 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         return _convertToAssets(asset, totalRequestedShares[asset]);
     }
 
-    function getDeposits(bytes32 ilk, address asset) external view returns (uint256) {
+    function getDeposits(address asset, bytes32 ilk) external view returns (uint256) {
         return _convertToAssets(asset, shares[asset][ilk]);
     }
 
-    function getRequestedFunds(bytes32 ilk, address asset) external view returns (uint256) {
+    function getRequestedFunds(address asset, bytes32 ilk) external view returns (uint256) {
         return _convertToAssets(asset, requestedShares[asset][ilk]);
     }
 
