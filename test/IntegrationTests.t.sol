@@ -6,7 +6,7 @@ import "dss-test/DssTest.sol";
 import { AllocatorRegistry } from "dss-allocator/AllocatorRegistry.sol";
 import { AllocatorRoles }    from "dss-allocator/AllocatorRoles.sol";
 
-import { MockERC20 } from "erc20-helpers/MockERC20.sol";
+import { IERC20 } from "erc20-helpers/interfaces/IERC20.sol";
 
 import { UpgradeableProxy } from "upgradeable-proxy/UpgradeableProxy.sol";
 
@@ -16,16 +16,18 @@ import { IPool } from "aave-v3-core/contracts/interfaces/IPool.sol";
 
 contract ConduitTestBase is DssTest {
 
+    address DAI  = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
     address POOL = 0xC13e21B648A5Ee794902342038FF3aDAB66BE987;
     address POT  = 0x197E90f9FAD81970bA7976f33CbD77088E5D7cf7;
 
     address admin    = makeAddr("admin");
+    address buffer   = makeAddr("buffer");
     address operator = makeAddr("operator");
 
     bytes32 constant ILK = 'some-ilk';
 
-    AllocatorRegistry registry = new AllocatorRegistry();
-    AllocatorRoles    roles    = new AllocatorRoles();
+    AllocatorRegistry registry;
+    AllocatorRoles    roles;
 
     IPool pool = IPool(POOL);
 
@@ -41,12 +43,26 @@ contract ConduitTestBase is DssTest {
 
         conduit = SparkConduit(address(proxy));
 
+        registry = new AllocatorRegistry();
+        roles    = new AllocatorRoles();
+
         conduit.setRoles(address(roles));
         conduit.setRegistry(address(registry));
+
+        registry.file(ILK, "buffer", buffer);
+
+        _setupOperatorRole(ILK, address(this));  // TODO: Change
+
+        // TODO: Use real buffer
+        vm.prank(buffer);
+        IERC20(DAI).approve(address(conduit), type(uint256).max);
+
+        conduit.setAssetEnabled(DAI, true);
     }
 
-    function test_deposit() external {
-        conduit.deposit(ILK, address(token), 100 ether);
+    function test_deposit_integration() external {
+        deal(DAI, buffer, 100 ether);
+        conduit.deposit(ILK, DAI, 100 ether);
     }
 
     function _setupOperatorRole(bytes32 ilk_, address operator_) internal {
