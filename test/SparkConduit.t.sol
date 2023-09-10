@@ -1238,7 +1238,10 @@ contract SparkConduitCancelFundRequestTests is SparkConduitTestBase {
 
 }
 
-contract SparkConduitGettersTests is SparkConduitTestBase {
+contract SparkConduitGetInterestDataTests is SparkConduitTestBase {
+
+    uint256 MAX_RATE   = 500_00 * RBPS;
+    uint256 MAX_AMOUNT = 1e45;
 
     function test_getInterestData() public {
         conduit.setSubsidySpread(50 * RBPS);
@@ -1250,11 +1253,306 @@ contract SparkConduitGettersTests is SparkConduitTestBase {
 
         IInterestRateDataSource.InterestData memory data = conduit.getInterestData(address(token));
 
-        assertApproxEqRel(data.baseRate,    400 * RBPS, WBPS);
-        assertApproxEqRel(data.subsidyRate, 350 * RBPS, WBPS);
+        // TODO: Investigate reducing diff
+        assertApproxEqAbs(data.baseRate,    400 * RBPS, 1e9);
+        assertApproxEqAbs(data.subsidyRate, 350 * RBPS, 1e9);
 
         assertEq(data.currentDebt, 100 ether);
         assertEq(data.targetDebt,  60 ether);
+    }
+
+    function testFuzz_getInterestData(
+        uint256 subsidySpread,
+        uint256 dsrAnnualRate,
+        uint256 depositAmount,
+        uint256 requestAmount
+    )
+        external
+    {
+        subsidySpread = _bound(subsidySpread, 0, 500_00 * RBPS);
+        dsrAnnualRate = _bound(dsrAnnualRate, 0, 500_00 * RBPS);
+        depositAmount = _bound(depositAmount, 0, 1e32);
+        requestAmount = _bound(requestAmount, 0, depositAmount);
+
+        conduit.setSubsidySpread(subsidySpread);
+        pot.setDSR(dsrAnnualRate / SECONDS_PER_YEAR + RAY);
+
+        token.mint(buffer, depositAmount);
+        conduit.deposit(ILK, address(token), depositAmount);
+        deal(address(token), address(atoken), 0);
+        conduit.requestFunds(ILK, address(token), requestAmount);
+
+        IInterestRateDataSource.InterestData memory data = conduit.getInterestData(address(token));
+
+        // TODO: Investigate reducing diff
+        assertApproxEqAbs(data.baseRate,    dsrAnnualRate + subsidySpread, 1e9);
+        assertApproxEqAbs(data.subsidyRate, dsrAnnualRate,                 1e9);
+
+        assertApproxEqAbs(data.currentDebt, depositAmount,                 1);
+        assertApproxEqAbs(data.targetDebt,  depositAmount - requestAmount, 1);
+    }
+
+}
+
+contract SparkConduitGetPositionTests is SparkConduitTestBase {
+
+    function test_getPosition() external {
+        token.mint(buffer, 100 ether);
+        conduit.deposit(ILK, address(token), 100 ether);
+
+        deal(address(token), address(atoken), 0);
+
+        conduit.requestFunds(ILK, address(token), 40 ether);
+
+        ( uint256 deposits, uint256 requestedFunds ) = conduit.getPosition(address(token), ILK);
+
+        assertEq(deposits,       100 ether);
+        assertEq(requestedFunds, 40 ether);
+
+        pool.setLiquidityIndex(160_00 * RBPS);
+
+        ( deposits, requestedFunds ) = conduit.getPosition(address(token), ILK);
+
+        assertEq(deposits,       128 ether);   // 100 @ 1.25 = 80, 80 @ 1.6 = 128
+        assertEq(requestedFunds, 51.2 ether);  // 40 @ 1.25  = 32, 32 @ 1.6 = 51.2
+    }
+
+    function testFuzz_getPosition(
+        uint256 index1,
+        uint256 index2,
+        uint256 depositAmount,
+        uint256 requestAmount
+    )
+        external
+    {
+        index1        = bound(index1,        1 * RBPS, 500_00 * RBPS);
+        index2        = bound(index2,        1 * RBPS, 500_00 * RBPS);
+        depositAmount = bound(depositAmount, 0,        1e32);
+        requestAmount = bound(requestAmount, 0,        depositAmount);
+
+        pool.setLiquidityIndex(index1);
+
+        token.mint(buffer, depositAmount);
+        conduit.deposit(ILK, address(token), depositAmount);
+
+        deal(address(token), address(atoken), 0);
+
+        conduit.requestFunds(ILK, address(token), requestAmount);
+
+        ( uint256 deposits, uint256 requestedFunds ) = conduit.getPosition(address(token), ILK);
+
+        assertApproxEqAbs(deposits,       depositAmount, 10);
+        assertApproxEqAbs(requestedFunds, requestAmount, 10);
+
+        pool.setLiquidityIndex(index2);
+
+        ( deposits, requestedFunds ) = conduit.getPosition(address(token), ILK);
+
+        uint256 expectedDeposit = depositAmount * 1e27 / index1 * index2 / 1e27;
+        uint256 expectedFunds   = requestAmount * 1e27 / index1 * index2 / 1e27;
+
+        assertApproxEqAbs(deposits,       expectedDeposit, 10);
+        assertApproxEqAbs(requestedFunds, expectedFunds,   10);
+    }
+
+}
+
+contract SparkConduitGetTotalDepositsTests is SparkConduitTestBase {
+
+    function test_getTotalDeposits() external {
+        token.mint(buffer, 100 ether);
+        conduit.deposit(ILK, address(token), 100 ether);
+
+        assertEq(conduit.getTotalDeposits(address(token)), 100 ether);
+
+        pool.setLiquidityIndex(160_00 * RBPS);
+
+        // 100 @ 1.25 = 80, 80 @ 1.6 = 128
+        assertEq(conduit.getTotalDeposits(address(token)), 128 ether);
+    }
+
+    function testFuzz_getTotalDeposits(
+        uint256 index1,
+        uint256 index2,
+        uint256 depositAmount
+    )
+        external
+    {
+        index1        = bound(index1,        1 * RBPS, 500_00 * RBPS);
+        index2        = bound(index2,        1 * RBPS, 500_00 * RBPS);
+        depositAmount = bound(depositAmount, 0,        1e32);
+
+        pool.setLiquidityIndex(index1);
+
+        token.mint(buffer, depositAmount);
+        conduit.deposit(ILK, address(token), depositAmount);
+
+        assertApproxEqAbs(conduit.getTotalDeposits(address(token)), depositAmount, 10);
+
+        pool.setLiquidityIndex(index2);
+
+        uint256 expectedDeposit = depositAmount * 1e27 / index1 * index2 / 1e27;
+
+        assertApproxEqAbs(conduit.getTotalDeposits(address(token)), expectedDeposit, 10);
+    }
+
+}
+
+contract SparkConduitGetDepositsTests is SparkConduitTestBase {
+
+    function test_getDeposits() external {
+        token.mint(buffer, 100 ether);
+        conduit.deposit(ILK, address(token), 100 ether);
+
+        assertEq(conduit.getDeposits(address(token), ILK), 100 ether);
+
+        pool.setLiquidityIndex(160_00 * RBPS);
+
+        // 100 @ 1.25 = 80, 80 @ 1.6 = 128
+        assertEq(conduit.getDeposits(address(token), ILK), 128 ether);
+    }
+
+    function testFuzz_getDeposits(
+        uint256 index1,
+        uint256 index2,
+        uint256 depositAmount
+    )
+        external
+    {
+        index1        = bound(index1,        1 * RBPS, 500_00 * RBPS);
+        index2        = bound(index2,        1 * RBPS, 500_00 * RBPS);
+        depositAmount = bound(depositAmount, 0,        1e32);
+
+        pool.setLiquidityIndex(index1);
+
+        token.mint(buffer, depositAmount);
+        conduit.deposit(ILK, address(token), depositAmount);
+
+        assertApproxEqAbs(conduit.getDeposits(address(token), ILK), depositAmount, 10);
+
+        pool.setLiquidityIndex(index2);
+
+        uint256 expectedDeposit = depositAmount * 1e27 / index1 * index2 / 1e27;
+
+        assertApproxEqAbs(conduit.getDeposits(address(token), ILK), expectedDeposit, 10);
+    }
+
+}
+
+contract SparkConduitGetTotalRequestedFundsTests is SparkConduitTestBase {
+
+    function test_getTotalRequestedFunds() external {
+        token.mint(buffer, 100 ether);
+        conduit.deposit(ILK, address(token), 100 ether);
+
+        deal(address(token), address(atoken), 0);
+
+        conduit.requestFunds(ILK, address(token), 100 ether);
+
+        assertEq(conduit.getTotalRequestedFunds(address(token)), 100 ether);
+
+        pool.setLiquidityIndex(160_00 * RBPS);
+
+        // 100 @ 1.25 = 80, 80 @ 1.6 = 128
+        assertEq(conduit.getTotalRequestedFunds(address(token)), 128 ether);
+    }
+
+    function testFuzz_getTotalRequestedFunds(
+        uint256 index1,
+        uint256 index2,
+        uint256 requestAmount
+    )
+        external
+    {
+        index1        = bound(index1,        1 * RBPS, 500_00 * RBPS);
+        index2        = bound(index2,        1 * RBPS, 500_00 * RBPS);
+        requestAmount = bound(requestAmount, 0,        1e32);
+
+        pool.setLiquidityIndex(index1);
+
+        token.mint(buffer, requestAmount);
+        conduit.deposit(ILK, address(token), requestAmount);
+
+        deal(address(token), address(atoken), 0);
+
+        conduit.requestFunds(ILK, address(token), requestAmount);
+
+        assertApproxEqAbs(conduit.getTotalRequestedFunds(address(token)), requestAmount, 10);
+
+        pool.setLiquidityIndex(index2);
+
+        uint256 expectedRequest = requestAmount * 1e27 / index1 * index2 / 1e27;
+
+        assertApproxEqAbs(conduit.getTotalRequestedFunds(address(token)), expectedRequest, 10);
+    }
+
+}
+
+contract SparkConduitGetRequestedFundsTests is SparkConduitTestBase {
+
+    function test_getRequestedFunds() external {
+        token.mint(buffer, 100 ether);
+        conduit.deposit(ILK, address(token), 100 ether);
+
+        deal(address(token), address(atoken), 0);
+
+        conduit.requestFunds(ILK, address(token), 100 ether);
+
+        assertEq(conduit.getRequestedFunds(address(token), ILK), 100 ether);
+
+        pool.setLiquidityIndex(160_00 * RBPS);
+
+        // 100 @ 1.25 = 80, 80 @ 1.6 = 128
+        assertEq(conduit.getRequestedFunds(address(token), ILK), 128 ether);
+    }
+
+    function testFuzz_getRequestedFunds(
+        uint256 index1,
+        uint256 index2,
+        uint256 requestAmount
+    )
+        external
+    {
+        index1        = bound(index1,        1 * RBPS, 500_00 * RBPS);
+        index2        = bound(index2,        1 * RBPS, 500_00 * RBPS);
+        requestAmount = bound(requestAmount, 0,        1e32);
+
+        pool.setLiquidityIndex(index1);
+
+        token.mint(buffer, requestAmount);
+        conduit.deposit(ILK, address(token), requestAmount);
+
+        deal(address(token), address(atoken), 0);
+
+        conduit.requestFunds(ILK, address(token), requestAmount);
+
+        assertApproxEqAbs(conduit.getRequestedFunds(address(token), ILK), requestAmount, 10);
+
+        pool.setLiquidityIndex(index2);
+
+        uint256 expectedRequest = requestAmount * 1e27 / index1 * index2 / 1e27;
+
+        assertApproxEqAbs(conduit.getRequestedFunds(address(token), ILK), expectedRequest, 10);
+    }
+
+}
+
+contract SparkConduitGetAvailableLiquidityTests is SparkConduitTestBase {
+
+    function test_getAvailableLiquidity() external {
+        assertEq(conduit.getAvailableLiquidity(address(token)), 0);
+
+        deal(address(token), address(atoken), 100 ether);
+
+        assertEq(conduit.getAvailableLiquidity(address(token)), 100 ether);
+    }
+
+    function testFuzz_getAvailableLiquidity(uint256 dealAmount) external {
+        assertEq(conduit.getAvailableLiquidity(address(token)), 0);
+
+        deal(address(token), address(atoken), dealAmount);
+
+        assertEq(conduit.getAvailableLiquidity(address(token)), dealAmount);
     }
 
 }

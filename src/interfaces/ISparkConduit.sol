@@ -223,29 +223,29 @@ interface ISparkConduit is IAllocatorConduit {
 
     /**
      *  @notice Returns the position of a ilk for an asset.
-     *  @param  ilk            The ilk for which to return the position.
      *  @param  asset          The asset for which to return the position.
+     *  @param  ilk            The ilk for which to return the position.
      *  @return deposits       The total deposits for the ilk.
      *  @return requestedFunds The total pending requested funds for the ilk.
      */
-    function getPosition(bytes32 ilk, address asset)
+    function getPosition(address asset, bytes32 ilk)
         external view returns (uint256 deposits, uint256 requestedFunds);
 
     /**
      *  @notice Gets the deposits for a given ilk and asset.
-     *  @param  ilk   The ilk to get the deposits for.
      *  @param  asset The asset to get the deposits for.
+     *  @param  ilk   The ilk to get the deposits for.
      *  @return The total amount of deposits for the given ilk and asset.
      */
-    function getDeposits(bytes32 ilk, address asset) external view returns (uint256);
+    function getDeposits(address asset, bytes32 ilk) external view returns (uint256);
 
     /**
      *  @notice Gets the pending requested funds for a given ilk and asset.
-     *  @param  ilk   The ilk to get the requested funds for.
      *  @param  asset The asset to get the requested funds for.
+     *  @param  ilk   The ilk to get the requested funds for.
      *  @return The total amount of requested funds for the given ilk and asset.
      */
-    function getRequestedFunds(bytes32 ilk, address asset) external view returns (uint256);
+    function getRequestedFunds(address asset, bytes32 ilk) external view returns (uint256);
 
 }
 
