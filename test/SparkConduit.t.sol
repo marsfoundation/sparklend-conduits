@@ -1288,7 +1288,6 @@ contract SparkConduitGetInterestDataTests is SparkConduitTestBase {
         assertApproxEqAbs(data.baseRate,    dsrAnnualRate + subsidySpread, 1e9);
         assertApproxEqAbs(data.subsidyRate, dsrAnnualRate,                 1e9);
 
-        // TODO: Figure out why this isn't working
         assertApproxEqAbs(data.currentDebt, depositAmount,                 1);
         assertApproxEqAbs(data.targetDebt,  depositAmount - requestAmount, 1);
     }
