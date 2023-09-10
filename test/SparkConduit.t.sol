@@ -263,7 +263,7 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
 
     // TODO: Add path-based testing once simplified logic is merged
 
-    function test_withdraw_singleIlk_exactWithdraw() public {
+    function test_withdraw_singleIlk_exactPartialWithdraw() public {
         _assertTokenState({
             bufferBalance: 0,
             atokenBalance: 100 ether
@@ -347,7 +347,7 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
         assertEq(conduit.totalRequestedShares(address(token)), 0);
     }
 
-    function test_withdraw_multiIlk_exactWithdraw() public {
+    function test_withdraw_multiIlk_exactPartialWithdraw() public {
         token.mint(buffer, 50 ether);
         conduit.deposit(ILK2, address(token), 50 ether);
 
