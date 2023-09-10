@@ -140,6 +140,18 @@ interface ISparkConduit is IAllocatorConduit {
     function requestFunds(bytes32 ilk, address asset, uint256 amount) external;
 
     /**
+     *  @notice Withdraws funds if there is available liquidity, and requests funds if there is a
+     *          remaining amount after the withdrawal.
+     *  @param  ilk             The ilk from which the funds are withdrawn/requested.
+     *  @param  asset           The asset for which the funds are withdrawn/requested.
+     *  @param  requestAmount   The amount of total funds requested.
+     *  @return amountWithdrawn The resulting amount of funds withdrawn.
+     *  @return requestedFunds  The resulting amount of funds requested.
+     */
+    function withdrawAndRequestFunds(bytes32 ilk, address asset, uint256 requestAmount)
+        external returns (uint256 amountWithdrawn, uint256 requestedFunds);
+
+    /**
      *  @notice Cancels a fund request.
      *  @param  ilk   The ilk whose fund request is to be cancelled.
      *  @param  asset The asset whose fund request is to be cancelled.

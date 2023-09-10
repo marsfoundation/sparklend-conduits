@@ -833,6 +833,259 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
 
 }
 
+contract SparkConduitWithdrawAndRequestFundsTests is SparkConduitTestBase {
+
+    function setUp() public override {
+        super.setUp();
+        token.mint(buffer, 100 ether);
+
+        conduit.deposit(ILK, address(token), 100 ether);
+    }
+
+    // TODO: Add path-based testing once simplified logic is merged
+
+    function test_withdrawAndRequestFunds_noLiquidity() public {
+        deal(address(token), address(atoken), 0);
+
+        _assertTokenState({
+            bufferBalance: 0,
+            atokenBalance: 0
+        });
+
+        _assertATokenState({
+            scaledBalance:     80 ether,
+            scaledTotalSupply: 80 ether,
+            balance:           100 ether,
+            totalSupply:       100 ether
+        });
+
+        assertEq(conduit.requestedShares(address(token), ILK), 0);
+        assertEq(conduit.totalRequestedShares(address(token)), 0);
+
+        vm.expectEmit();
+        emit RequestFunds(ILK, address(token), 40 ether);
+        ( uint256 amountWithdrawn, uint256 requestedFunds )
+            = conduit.withdrawAndRequestFunds(ILK, address(token), 40 ether);
+
+        assertEq(amountWithdrawn, 0);
+        assertEq(requestedFunds,  40 ether);
+
+        // No changes except requestedShares
+
+        _assertTokenState({
+            bufferBalance: 0,
+            atokenBalance: 0
+        });
+
+        _assertATokenState({
+            scaledBalance:     80 ether,
+            scaledTotalSupply: 80 ether,
+            balance:           100 ether,
+            totalSupply:       100 ether
+        });
+
+        assertEq(conduit.shares(address(token), ILK), 80 ether);
+        assertEq(conduit.totalShares(address(token)), 80 ether);
+
+        assertEq(conduit.requestedShares(address(token), ILK), 32 ether);
+        assertEq(conduit.totalRequestedShares(address(token)), 32 ether);
+    }
+
+    function test_withdrawAndRequestFunds_partialLiquidity() public {
+        deal(address(token), address(atoken), 30 ether);
+
+        _assertTokenState({
+            bufferBalance: 0,
+            atokenBalance: 30 ether
+        });
+
+        _assertATokenState({
+            scaledBalance:     80 ether,
+            scaledTotalSupply: 80 ether,
+            balance:           100 ether,
+            totalSupply:       100 ether
+        });
+
+        assertEq(conduit.shares(address(token), ILK), 80 ether);
+        assertEq(conduit.totalShares(address(token)), 80 ether);
+
+        assertEq(conduit.requestedShares(address(token), ILK), 0);
+        assertEq(conduit.totalRequestedShares(address(token)), 0);
+
+        vm.expectEmit();
+        emit Withdraw(ILK, address(token), buffer, 30 ether);
+        vm.expectEmit();
+        emit RequestFunds(ILK, address(token), 10 ether);
+        ( uint256 amountWithdrawn, uint256 requestedFunds )
+            = conduit.withdrawAndRequestFunds(ILK, address(token), 40 ether);
+
+        assertEq(amountWithdrawn, 30 ether);
+        assertEq(requestedFunds,  10 ether);
+
+        _assertTokenState({
+            bufferBalance: 30 ether,
+            atokenBalance: 0
+        });
+
+        _assertATokenState({
+            scaledBalance:     56 ether,  // 80 - 30 / 1.25
+            scaledTotalSupply: 56 ether,
+            balance:           70 ether,
+            totalSupply:       70 ether
+        });
+
+        assertEq(conduit.shares(address(token), ILK), 56 ether);
+        assertEq(conduit.totalShares(address(token)), 56 ether);
+
+        assertEq(conduit.requestedShares(address(token), ILK), 8 ether);
+        assertEq(conduit.totalRequestedShares(address(token)), 8 ether);
+    }
+
+    function test_withdrawAndRequestFunds_partialLiquidity_fullRequest() public {
+        deal(address(token), address(atoken), 30 ether);
+
+        _assertTokenState({
+            bufferBalance: 0,
+            atokenBalance: 30 ether
+        });
+
+        _assertATokenState({
+            scaledBalance:     80 ether,
+            scaledTotalSupply: 80 ether,
+            balance:           100 ether,
+            totalSupply:       100 ether
+        });
+
+        assertEq(conduit.shares(address(token), ILK), 80 ether);
+        assertEq(conduit.totalShares(address(token)), 80 ether);
+
+        assertEq(conduit.requestedShares(address(token), ILK), 0);
+        assertEq(conduit.totalRequestedShares(address(token)), 0);
+
+        vm.expectEmit();
+        emit Withdraw(ILK, address(token), buffer, 30 ether);
+        vm.expectEmit();
+        emit RequestFunds(ILK, address(token), 70 ether);
+        ( uint256 amountWithdrawn, uint256 requestedFunds )
+            = conduit.withdrawAndRequestFunds(ILK, address(token), 100 ether);
+
+        assertEq(amountWithdrawn, 30 ether);
+        assertEq(requestedFunds,  70 ether);
+
+        _assertTokenState({
+            bufferBalance: 30 ether,
+            atokenBalance: 0
+        });
+
+        _assertATokenState({
+            scaledBalance:     56 ether,
+            scaledTotalSupply: 56 ether,
+            balance:           70 ether,
+            totalSupply:       70 ether
+        });
+
+        assertEq(conduit.shares(address(token), ILK), 56 ether);
+        assertEq(conduit.totalShares(address(token)), 56 ether);
+
+        assertEq(conduit.requestedShares(address(token), ILK), 56 ether);
+        assertEq(conduit.totalRequestedShares(address(token)), 56 ether);
+    }
+
+    function test_withdrawAndRequestFunds_fullLiquidity_partialRequest() public {
+        _assertTokenState({
+            bufferBalance: 0,
+            atokenBalance: 100 ether
+        });
+
+        _assertATokenState({
+            scaledBalance:     80 ether,
+            scaledTotalSupply: 80 ether,
+            balance:           100 ether,
+            totalSupply:       100 ether
+        });
+
+        assertEq(conduit.shares(address(token), ILK), 80 ether);
+        assertEq(conduit.totalShares(address(token)), 80 ether);
+
+        assertEq(conduit.requestedShares(address(token), ILK), 0);
+        assertEq(conduit.totalRequestedShares(address(token)), 0);
+
+        vm.expectEmit();
+        emit Withdraw(ILK, address(token), buffer, 30 ether);
+        ( uint256 amountWithdrawn, uint256 requestedFunds )
+            = conduit.withdrawAndRequestFunds(ILK, address(token), 30 ether);
+
+        assertEq(amountWithdrawn, 30 ether);
+        assertEq(requestedFunds,  0);
+
+        _assertTokenState({
+            bufferBalance: 30 ether,
+            atokenBalance: 70 ether
+        });
+
+        _assertATokenState({
+            scaledBalance:     56 ether,
+            scaledTotalSupply: 56 ether,
+            balance:           70 ether,
+            totalSupply:       70 ether
+        });
+
+        assertEq(conduit.shares(address(token), ILK), 56 ether);
+        assertEq(conduit.totalShares(address(token)), 56 ether);
+
+        // No change in requestedShares
+        assertEq(conduit.requestedShares(address(token), ILK), 0);
+        assertEq(conduit.totalRequestedShares(address(token)), 0);
+    }
+
+    function test_withdrawAndRequestFunds_fullLiquidity_fullRequest() public {
+        _assertTokenState({
+            bufferBalance: 0,
+            atokenBalance: 100 ether
+        });
+
+        _assertATokenState({
+            scaledBalance:     80 ether,
+            scaledTotalSupply: 80 ether,
+            balance:           100 ether,
+            totalSupply:       100 ether
+        });
+
+        assertEq(conduit.shares(address(token), ILK), 80 ether);
+        assertEq(conduit.totalShares(address(token)), 80 ether);
+
+        assertEq(conduit.requestedShares(address(token), ILK), 0);
+        assertEq(conduit.totalRequestedShares(address(token)), 0);
+
+        vm.expectEmit();
+        emit Withdraw(ILK, address(token), buffer, 100 ether);
+        ( uint256 amountWithdrawn, uint256 requestedFunds )
+            = conduit.withdrawAndRequestFunds(ILK, address(token), 100 ether);
+
+        assertEq(amountWithdrawn, 100 ether);
+        assertEq(requestedFunds,  0);
+
+        _assertTokenState({
+            bufferBalance: 100 ether,
+            atokenBalance: 0
+        });
+
+        _assertATokenState({
+            scaledBalance:     0,
+            scaledTotalSupply: 0,
+            balance:           0,
+            totalSupply:       0
+        });
+
+        assertEq(conduit.shares(address(token), ILK), 0);
+        assertEq(conduit.totalShares(address(token)), 0);
+
+        // No change in requestedShares
+        assertEq(conduit.requestedShares(address(token), ILK), 0);
+        assertEq(conduit.totalRequestedShares(address(token)), 0);
+    }
+}
+
 contract SparkConduitMaxViewFunctionTests is SparkConduitTestBase {
 
     function test_maxDeposit() public {
