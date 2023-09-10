@@ -913,8 +913,9 @@ contract SparkConduitWithdrawAndRequestFundsTests is SparkConduitTestBase {
         assertEq(conduit.totalRequestedShares(address(token)), 0);
 
         vm.expectEmit();
-        emit RequestFunds(ILK, address(token), 10 ether);
         emit Withdraw(ILK, address(token), buffer, 30 ether);
+        vm.expectEmit();
+        emit RequestFunds(ILK, address(token), 10 ether);
         ( uint256 amountWithdrawn, uint256 requestedFunds )
             = conduit.withdrawAndRequestFunds(ILK, address(token), 40 ether);
 
@@ -962,8 +963,9 @@ contract SparkConduitWithdrawAndRequestFundsTests is SparkConduitTestBase {
         assertEq(conduit.totalRequestedShares(address(token)), 0);
 
         vm.expectEmit();
-        emit RequestFunds(ILK, address(token), 70 ether);
         emit Withdraw(ILK, address(token), buffer, 30 ether);
+        vm.expectEmit();
+        emit RequestFunds(ILK, address(token), 70 ether);
         ( uint256 amountWithdrawn, uint256 requestedFunds )
             = conduit.withdrawAndRequestFunds(ILK, address(token), 100 ether);
 

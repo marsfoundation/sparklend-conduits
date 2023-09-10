@@ -189,7 +189,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
 
         // If the withdrawal didn't satisfy the full amount, request the remainder.
         if (requestAmount > amountWithdrawn) {
-            requestedFunds = requestAmount - amountWithdrawn;
+            unchecked { requestedFunds = requestAmount - amountWithdrawn; }
             requestFunds(ilk, asset, requestedFunds);
         }
     }
