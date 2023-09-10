@@ -13,7 +13,7 @@ import { PoolMock, PotMock, RolesMock, RegistryMock } from "./mocks/Mocks.sol";
 
 import { ATokenMock } from "./mocks/ATokenMock.sol";
 
-// TODO: Show how requested shares/shares are handled during an increase in exchange rate
+// TODO: Add multiple buffers when multi ilk is used
 
 contract SparkConduitTestBase is DssTest {
 
@@ -264,11 +264,17 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
     // TODO: Add path-based testing once simplified logic is merged
 
     function test_withdraw_singleIlk_exactWithdraw() public {
-        assertEq(token.balanceOf(buffer),          0);
-        assertEq(token.balanceOf(address(atoken)), 100 ether);
+        _assertTokenState({
+            bufferBalance: 0,
+            atokenBalance: 100 ether
+        });
 
-        assertEq(atoken.balanceOf(address(conduit)), 80 ether);
-        assertEq(atoken.totalSupply(),               80 ether);
+        _assertATokenState({
+            scaledBalance:     80 ether,
+            scaledTotalSupply: 80 ether,
+            balance:           100 ether,
+            totalSupply:       100 ether
+        });
 
         assertEq(conduit.shares(address(token), ILK), 80 ether);
         assertEq(conduit.totalShares(address(token)), 80 ether);
@@ -280,11 +286,17 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
         emit Withdraw(ILK, address(token), buffer, 40 ether);
         assertEq(conduit.withdraw(ILK, address(token), 40 ether), 40 ether);
 
-        assertEq(token.balanceOf(buffer),          40 ether);
-        assertEq(token.balanceOf(address(atoken)), 60 ether);
+        _assertTokenState({
+            bufferBalance: 40 ether,
+            atokenBalance: 60 ether
+        });
 
-        assertEq(atoken.balanceOf(address(conduit)), 48 ether);  // 40 / 1.25 = 32
-        assertEq(atoken.totalSupply(),               48 ether);
+        _assertATokenState({
+            scaledBalance:     48 ether,
+            scaledTotalSupply: 48 ether,
+            balance:           60 ether,
+            totalSupply:       60 ether
+        });
 
         assertEq(conduit.shares(address(token), ILK), 48 ether);
         assertEq(conduit.totalShares(address(token)), 48 ether);
@@ -294,11 +306,17 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
     }
 
     function test_withdraw_singleIlk_maxUint() public {
-        assertEq(token.balanceOf(buffer),           0);
-        assertEq(token.balanceOf(address(atoken)),  100 ether);
+        _assertTokenState({
+            bufferBalance: 0,
+            atokenBalance: 100 ether
+        });
 
-        assertEq(atoken.balanceOf(address(conduit)), 80 ether);
-        assertEq(atoken.totalSupply(),               80 ether);
+        _assertATokenState({
+            scaledBalance:     80 ether,
+            scaledTotalSupply: 80 ether,
+            balance:           100 ether,
+            totalSupply:       100 ether
+        });
 
         assertEq(conduit.shares(address(token), ILK), 80 ether);
         assertEq(conduit.totalShares(address(token)), 80 ether);
@@ -310,11 +328,17 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
         emit Withdraw(ILK, address(token), buffer, 100 ether);
         assertEq(conduit.withdraw(ILK, address(token), type(uint256).max), 100 ether);
 
-        assertEq(token.balanceOf(buffer),          100 ether);
-        assertEq(token.balanceOf(address(atoken)), 0);
+        _assertTokenState({
+            bufferBalance: 100 ether,
+            atokenBalance: 0
+        });
 
-        assertEq(atoken.balanceOf(address(conduit)), 0);
-        assertEq(atoken.totalSupply(),               0);
+        _assertATokenState({
+            scaledBalance:     0,
+            scaledTotalSupply: 0,
+            balance:           0,
+            totalSupply:       0
+        });
 
         assertEq(conduit.shares(address(token), ILK), 0);
         assertEq(conduit.totalShares(address(token)), 0);
@@ -327,11 +351,17 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
         token.mint(buffer, 50 ether);
         conduit.deposit(ILK2, address(token), 50 ether);
 
-        assertEq(token.balanceOf(buffer),          0);
-        assertEq(token.balanceOf(address(atoken)), 150 ether);
+        _assertTokenState({
+            bufferBalance: 0,
+            atokenBalance: 150 ether
+        });
 
-        assertEq(atoken.balanceOf(address(conduit)), 120 ether);
-        assertEq(atoken.totalSupply(),               120 ether);
+        _assertATokenState({
+            scaledBalance:     120 ether,
+            scaledTotalSupply: 120 ether,
+            balance:           150 ether,
+            totalSupply:       150 ether
+        });
 
         assertEq(conduit.shares(address(token), ILK),  80 ether);
         assertEq(conduit.shares(address(token), ILK2), 40 ether);
@@ -345,11 +375,17 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
         emit Withdraw(ILK, address(token), buffer, 50 ether);
         assertEq(conduit.withdraw(ILK, address(token), 50 ether), 50 ether);
 
-        assertEq(token.balanceOf(buffer),          50 ether);
-        assertEq(token.balanceOf(address(atoken)), 100 ether);
+        _assertTokenState({
+            bufferBalance: 50 ether,
+            atokenBalance: 100 ether
+        });
 
-        assertEq(atoken.balanceOf(address(conduit)), 80 ether);
-        assertEq(atoken.totalSupply(),               80 ether);
+        _assertATokenState({
+            scaledBalance:     80 ether,
+            scaledTotalSupply: 80 ether,
+            balance:           100 ether,
+            totalSupply:       100 ether
+        });
 
         assertEq(conduit.shares(address(token), ILK),  40 ether);
         assertEq(conduit.shares(address(token), ILK2), 40 ether);
@@ -365,11 +401,17 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
         token.mint(buffer, 50 ether);
         conduit.deposit(ILK2, address(token), 50 ether);
 
-        assertEq(token.balanceOf(buffer),          0);
-        assertEq(token.balanceOf(address(atoken)), 150 ether);
+        _assertTokenState({
+            bufferBalance: 0,
+            atokenBalance: 150 ether
+        });
 
-        assertEq(atoken.balanceOf(address(conduit)), 120 ether);
-        assertEq(atoken.totalSupply(),               120 ether);
+        _assertATokenState({
+            scaledBalance:     120 ether,
+            scaledTotalSupply: 120 ether,
+            balance:           150 ether,
+            totalSupply:       150 ether
+        });
 
         assertEq(conduit.shares(address(token), ILK),  80 ether);
         assertEq(conduit.shares(address(token), ILK2), 40 ether);
@@ -383,11 +425,17 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
         emit Withdraw(ILK, address(token), buffer, 100 ether);
         assertEq(conduit.withdraw(ILK, address(token), type(uint256).max), 100 ether);
 
-        assertEq(token.balanceOf(buffer),          100 ether);
-        assertEq(token.balanceOf(address(atoken)), 50 ether);
+        _assertTokenState({
+            bufferBalance: 100 ether,
+            atokenBalance: 50 ether
+        });
 
-        assertEq(atoken.balanceOf(address(conduit)), 40 ether);
-        assertEq(atoken.totalSupply(),               40 ether);
+        _assertATokenState({
+            scaledBalance:     40 ether,
+            scaledTotalSupply: 40 ether,
+            balance:           50 ether,
+            totalSupply:       50 ether
+        });
 
         assertEq(conduit.shares(address(token), ILK),  0);
         assertEq(conduit.shares(address(token), ILK2), 40 ether);
@@ -406,11 +454,17 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
         // Partially fill withdrawal order
         deal(address(token), address(atoken), 25 ether);
 
-        assertEq(token.balanceOf(buffer),          0);
-        assertEq(token.balanceOf(address(atoken)), 25 ether);
+        _assertTokenState({
+            bufferBalance: 0,
+            atokenBalance: 25 ether
+        });
 
-        assertEq(atoken.balanceOf(address(conduit)), 80 ether);
-        assertEq(atoken.totalSupply(),               80 ether);
+        _assertATokenState({
+            scaledBalance:     80 ether,
+            scaledTotalSupply: 80 ether,
+            balance:           100 ether,
+            totalSupply:       100 ether
+        });
 
         assertEq(conduit.shares(address(token), ILK), 80 ether);
         assertEq(conduit.totalShares(address(token)), 80 ether);
@@ -422,11 +476,17 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
         emit Withdraw(ILK, address(token), buffer, 25 ether);
         conduit.withdraw(ILK, address(token), 25 ether);
 
-        assertEq(token.balanceOf(buffer),          25 ether);
-        assertEq(token.balanceOf(address(atoken)), 0);
+        _assertTokenState({
+            bufferBalance: 25 ether,
+            atokenBalance: 0
+        });
 
-        assertEq(atoken.balanceOf(address(conduit)), 60 ether);
-        assertEq(atoken.totalSupply(),               60 ether);
+        _assertATokenState({
+            scaledBalance:     60 ether,
+            scaledTotalSupply: 60 ether,
+            balance:           75 ether,
+            totalSupply:       75 ether
+        });
 
         assertEq(conduit.shares(address(token), ILK), 60 ether);
         assertEq(conduit.totalShares(address(token)), 60 ether);
@@ -443,11 +503,17 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
         // Fill full withdrawal order
         deal(address(token), address(atoken), 60 ether);
 
-        assertEq(token.balanceOf(buffer),           0);
-        assertEq(token.balanceOf(address(atoken)),  60 ether);
+        _assertTokenState({
+            bufferBalance: 0,
+            atokenBalance: 60 ether
+        });
 
-        assertEq(atoken.balanceOf(address(conduit)), 80 ether);
-        assertEq(atoken.totalSupply(),               80 ether);
+        _assertATokenState({
+            scaledBalance:     80 ether,
+            scaledTotalSupply: 80 ether,
+            balance:           100 ether,
+            totalSupply:       100 ether
+        });
 
         assertEq(conduit.shares(address(token), ILK), 80 ether);
         assertEq(conduit.totalShares(address(token)), 80 ether);
@@ -459,11 +525,17 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
         emit Withdraw(ILK, address(token), buffer, 60 ether);
         conduit.withdraw(ILK, address(token), 60 ether);
 
-        assertEq(token.balanceOf(buffer),          60 ether);
-        assertEq(token.balanceOf(address(atoken)), 0);
+        _assertTokenState({
+            bufferBalance: 60 ether,
+            atokenBalance: 0
+        });
 
-        assertEq(atoken.balanceOf(address(conduit)), 32 ether);
-        assertEq(atoken.totalSupply(),               32 ether);
+        _assertATokenState({
+            scaledBalance:     32 ether,
+            scaledTotalSupply: 32 ether,
+            balance:           40 ether,
+            totalSupply:       40 ether
+        });
 
         assertEq(conduit.shares(address(token), ILK), 32 ether);
         assertEq(conduit.totalShares(address(token)), 32 ether);
@@ -475,11 +547,17 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
     function test_withdraw_singleIlk_maxUint_partialLiquidity() public {
         deal(address(token), address(atoken), 40 ether);
 
-        assertEq(token.balanceOf(buffer),          0);
-        assertEq(token.balanceOf(address(atoken)), 40 ether);
+        _assertTokenState({
+            bufferBalance: 0,
+            atokenBalance: 40 ether
+        });
 
-        assertEq(atoken.balanceOf(address(conduit)), 80 ether);
-        assertEq(atoken.totalSupply(),               80 ether);
+        _assertATokenState({
+            scaledBalance:     80 ether,
+            scaledTotalSupply: 80 ether,
+            balance:           100 ether,
+            totalSupply:       100 ether
+        });
 
         assertEq(conduit.shares(address(token), ILK), 80 ether);
         assertEq(conduit.totalShares(address(token)), 80 ether);
@@ -491,11 +569,17 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
         emit Withdraw(ILK, address(token), buffer, 40 ether);
         assertEq(conduit.withdraw(ILK, address(token), type(uint256).max), 40 ether);
 
-        assertEq(token.balanceOf(buffer),          40 ether);
-        assertEq(token.balanceOf(address(atoken)), 0);
+        _assertTokenState({
+            bufferBalance: 40 ether,
+            atokenBalance: 0
+        });
 
-        assertEq(atoken.balanceOf(address(conduit)), 48 ether);
-        assertEq(atoken.totalSupply(),               48 ether);
+        _assertATokenState({
+            scaledBalance:     48 ether,
+            scaledTotalSupply: 48 ether,
+            balance:           60 ether,
+            totalSupply:       60 ether
+        });
 
         assertEq(conduit.shares(address(token), ILK), 48 ether);
         assertEq(conduit.totalShares(address(token)), 48 ether);
@@ -511,11 +595,17 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
         // NOTE: Excluding requestedShares assertions as they are proven not
         //       to change by the above tests.
 
-        assertEq(token.balanceOf(buffer),          0);
-        assertEq(token.balanceOf(address(atoken)), 150 ether);
+        _assertTokenState({
+            bufferBalance: 0,
+            atokenBalance: 150 ether
+        });
 
-        assertEq(atoken.balanceOf(address(conduit)), 120 ether);
-        assertEq(atoken.totalSupply(),               120 ether);
+        _assertATokenState({
+            scaledBalance:     120 ether,
+            scaledTotalSupply: 120 ether,
+            balance:           150 ether,
+            totalSupply:       150 ether
+        });
 
         assertEq(conduit.shares(address(token), ILK),  80 ether);
         assertEq(conduit.shares(address(token), ILK2), 40 ether);
@@ -526,11 +616,17 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
         emit Withdraw(ILK, address(token), buffer, 100 ether);
         assertEq(conduit.withdraw(ILK, address(token), type(uint256).max), 100 ether);
 
-        assertEq(token.balanceOf(buffer),          100 ether);
-        assertEq(token.balanceOf(address(atoken)), 50 ether);
+        _assertTokenState({
+            bufferBalance: 100 ether,
+            atokenBalance: 50 ether
+        });
 
-        assertEq(atoken.balanceOf(address(conduit)), 40 ether);
-        assertEq(atoken.totalSupply(),               40 ether);
+        _assertATokenState({
+            scaledBalance:     40 ether,
+            scaledTotalSupply: 40 ether,
+            balance:           50 ether,
+            totalSupply:       50 ether
+        });
 
         assertEq(conduit.shares(address(token), ILK),  0);
         assertEq(conduit.shares(address(token), ILK2), 40 ether);
@@ -544,12 +640,17 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
 
         assertEq(conduit.withdraw(ILK2, address(token), type(uint256).max), 50 ether);
 
-        assertEq(token.balanceOf(buffer),          150 ether);
-        assertEq(token.balanceOf(address(atoken)), 0);
+        _assertTokenState({
+            bufferBalance: 150 ether,
+            atokenBalance: 0
+        });
 
-        // 40 - (50 / 1.6) = 8.75 shares remaining after the withdrawal of 50 ether.
-        assertEq(atoken.balanceOf(address(conduit)), 8.75 ether);
-        assertEq(atoken.totalSupply(),               8.75 ether);
+        _assertATokenState({
+            scaledBalance:     8.75 ether,  // 40 - (50 / 1.6) = 8.75
+            scaledTotalSupply: 8.75 ether,
+            balance:           14 ether,    // Interest earned by ilk2
+            totalSupply:       14 ether
+        });
 
         assertEq(conduit.shares(address(token), ILK),  0);
         assertEq(conduit.shares(address(token), ILK2), 8.75 ether);
@@ -560,14 +661,20 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
         token.mint(buffer, 50 ether);
         conduit.deposit(ILK2, address(token), 50 ether);
 
+        _assertTokenState({
+            bufferBalance: 0,
+            atokenBalance: 150 ether
+        });
+
+        _assertATokenState({
+            scaledBalance:     120 ether,
+            scaledTotalSupply: 120 ether,
+            balance:           150 ether,
+            totalSupply:       150 ether
+        });
+
         // NOTE: Excluding requestedShares assertions as they are proven not
         //       to change by the above tests.
-
-        assertEq(token.balanceOf(buffer),          0);
-        assertEq(token.balanceOf(address(atoken)), 150 ether);
-
-        assertEq(atoken.balanceOf(address(conduit)), 120 ether);
-        assertEq(atoken.totalSupply(),               120 ether);
 
         assertEq(conduit.shares(address(token), ILK),  80 ether);
         assertEq(conduit.shares(address(token), ILK2), 40 ether);
@@ -578,11 +685,17 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
         emit Withdraw(ILK, address(token), buffer, 100 ether);
         assertEq(conduit.withdraw(ILK, address(token), type(uint256).max), 100 ether);
 
-        assertEq(token.balanceOf(buffer),          100 ether);
-        assertEq(token.balanceOf(address(atoken)), 50 ether);
+        _assertTokenState({
+            bufferBalance: 100 ether,
+            atokenBalance: 50 ether
+        });
 
-        assertEq(atoken.balanceOf(address(conduit)), 40 ether);
-        assertEq(atoken.totalSupply(),               40 ether);
+        _assertATokenState({
+            scaledBalance:     40 ether,
+            scaledTotalSupply: 40 ether,
+            balance:           50 ether,
+            totalSupply:       50 ether
+        });
 
         assertEq(conduit.shares(address(token), ILK),  0);
         assertEq(conduit.shares(address(token), ILK2), 40 ether);
@@ -595,11 +708,17 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
 
         assertEq(conduit.withdraw(ILK2, address(token), type(uint256).max), 32 ether);
 
-        assertEq(token.balanceOf(buffer),          132 ether);
-        assertEq(token.balanceOf(address(atoken)), 18 ether);
+        _assertTokenState({
+            bufferBalance: 132 ether,
+            atokenBalance: 18 ether
+        });
 
-        assertEq(atoken.balanceOf(address(conduit)), 0);
-        assertEq(atoken.totalSupply(),               0);
+        _assertATokenState({
+            scaledBalance:     0,
+            scaledTotalSupply: 0,
+            balance:           0,
+            totalSupply:       0
+        });
 
         assertEq(conduit.shares(address(token), ILK),  0);
         assertEq(conduit.shares(address(token), ILK2), 0);
@@ -616,11 +735,17 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
 
         pool.setLiquidityIndex(160_00 * RBPS);
 
-        assertEq(token.balanceOf(buffer),           0);
-        assertEq(token.balanceOf(address(atoken)),  200 ether);
+        _assertTokenState({
+            bufferBalance: 0,
+            atokenBalance: 200 ether
+        });
 
-        assertEq(atoken.balanceOf(address(conduit)), 80 ether);
-        assertEq(atoken.totalSupply(),               80 ether);
+        _assertATokenState({
+            scaledBalance:     80 ether,
+            scaledTotalSupply: 80 ether,
+            balance:           128 ether,  // 80 * 1.6 = 128
+            totalSupply:       128 ether
+        });
 
         assertEq(conduit.shares(address(token), ILK), 80 ether);
         assertEq(conduit.totalShares(address(token)), 80 ether);
@@ -633,11 +758,17 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
         emit Withdraw(ILK, address(token), buffer, 128 ether);
         assertEq(conduit.withdraw(ILK, address(token), type(uint256).max), 128 ether);
 
-        assertEq(token.balanceOf(buffer),           128 ether);
-        assertEq(token.balanceOf(address(atoken)),  72 ether);
+        _assertTokenState({
+            bufferBalance: 128 ether,
+            atokenBalance: 72 ether
+        });
 
-        assertEq(atoken.balanceOf(address(conduit)), 0);
-        assertEq(atoken.totalSupply(),               0);
+        _assertATokenState({
+            scaledBalance:     0,
+            scaledTotalSupply: 0,
+            balance:           0,
+            totalSupply:       0
+        });
 
         assertEq(conduit.shares(address(token), ILK), 0);
         assertEq(conduit.totalShares(address(token)), 0);
@@ -657,11 +788,17 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
 
         pool.setLiquidityIndex(160_00 * RBPS);
 
-        assertEq(token.balanceOf(buffer),           0);
-        assertEq(token.balanceOf(address(atoken)),  40 ether);
+        _assertTokenState({
+            bufferBalance: 0,
+            atokenBalance: 40 ether
+        });
 
-        assertEq(atoken.balanceOf(address(conduit)), 80 ether);
-        assertEq(atoken.totalSupply(),               80 ether);
+        _assertATokenState({
+            scaledBalance:     80 ether,
+            scaledTotalSupply: 80 ether,
+            balance:           128 ether,
+            totalSupply:       128 ether
+        });
 
         assertEq(conduit.shares(address(token), ILK), 80 ether);
         assertEq(conduit.totalShares(address(token)), 80 ether);
@@ -674,11 +811,17 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
         emit Withdraw(ILK, address(token), buffer, 40 ether);
         assertEq(conduit.withdraw(ILK, address(token), type(uint256).max), 40 ether);
 
-        assertEq(token.balanceOf(buffer),           40 ether);
-        assertEq(token.balanceOf(address(atoken)),  0);
+        _assertTokenState({
+            bufferBalance: 40 ether,
+            atokenBalance: 0
+        });
 
-        assertEq(atoken.balanceOf(address(conduit)), 55 ether);
-        assertEq(atoken.totalSupply(),               55 ether);
+        _assertATokenState({
+            scaledBalance:     55 ether,  // 80 - 40/1.6 = 55
+            scaledTotalSupply: 55 ether,
+            balance:           88 ether,  // 55 * 1.6 = 88
+            totalSupply:       88 ether
+        });
 
         assertEq(conduit.shares(address(token), ILK), 55 ether);
         assertEq(conduit.totalShares(address(token)), 55 ether);
