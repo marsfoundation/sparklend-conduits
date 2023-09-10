@@ -1266,7 +1266,9 @@ contract SparkConduitGetInterestDataTests is SparkConduitTestBase {
         uint256 dsrAnnualRate,
         uint256 depositAmount,
         uint256 requestAmount
-    ) external {
+    )
+        external
+    {
         subsidySpread = _bound(subsidySpread, 0, 500_00 * RBPS);
         dsrAnnualRate = _bound(dsrAnnualRate, 0, 500_00 * RBPS);
         depositAmount = _bound(depositAmount, 0, 1e32);
@@ -1374,7 +1376,9 @@ contract SparkConduitGetTotalDepositsTests is SparkConduitTestBase {
         uint256 index1,
         uint256 index2,
         uint256 depositAmount
-    ) external {
+    )
+        external
+    {
         index1        = bound(index1,        1 * RBPS, 500_00 * RBPS);
         index2        = bound(index2,        1 * RBPS, 500_00 * RBPS);
         depositAmount = bound(depositAmount, 0,        1e32);
@@ -1413,7 +1417,9 @@ contract SparkConduitGetDepositsTests is SparkConduitTestBase {
         uint256 index1,
         uint256 index2,
         uint256 depositAmount
-    ) external {
+    )
+        external
+    {
         index1        = bound(index1,        1 * RBPS, 500_00 * RBPS);
         index2        = bound(index2,        1 * RBPS, 500_00 * RBPS);
         depositAmount = bound(depositAmount, 0,        1e32);
@@ -1456,7 +1462,9 @@ contract SparkConduitGetTotalRequestedFundsTests is SparkConduitTestBase {
         uint256 index1,
         uint256 index2,
         uint256 requestAmount
-    ) external {
+    )
+        external
+    {
         index1        = bound(index1,        1 * RBPS, 500_00 * RBPS);
         index2        = bound(index2,        1 * RBPS, 500_00 * RBPS);
         requestAmount = bound(requestAmount, 0,        1e32);
@@ -1503,7 +1511,9 @@ contract SparkConduitGetRequestedFundsTests is SparkConduitTestBase {
         uint256 index1,
         uint256 index2,
         uint256 requestAmount
-    ) external {
+    )
+        external
+    {
         index1        = bound(index1,        1 * RBPS, 500_00 * RBPS);
         index2        = bound(index2,        1 * RBPS, 500_00 * RBPS);
         requestAmount = bound(requestAmount, 0,        1e32);
