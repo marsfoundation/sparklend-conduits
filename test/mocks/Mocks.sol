@@ -8,9 +8,11 @@ import { DataTypes } from 'aave-v3-core/contracts/protocol/libraries/types/DataT
 import { MockERC20 } from 'erc20-helpers/MockERC20.sol';
 
 import { DaiInterestRateStrategy, IInterestRateDataSource, DataTypes }
-    from '../src/DaiInterestRateStrategy.sol';
+    from 'src/DaiInterestRateStrategy.sol';
 
-import { SparkConduit, IERC20 } from '../src/SparkConduit.sol';
+import { SparkConduit, IERC20 } from 'src/SparkConduit.sol';
+
+import { ATokenMock } from "./ATokenMock.sol";
 
 contract DaiMock {
 
@@ -64,18 +66,18 @@ contract PoolMock {
 
     Vm vm;
 
-    MockERC20 public atoken;
+    ATokenMock public atoken;
 
     uint256 public liquidityIndex = 10 ** 27;
 
     constructor(Vm vm_) {
         vm     = vm_;
-        atoken = new MockERC20('aToken', 'aTKN', 18);
+        atoken = new ATokenMock('aToken', 'aTKN', 18, address(this));
     }
 
     function supply(address asset, uint256 amount, address, uint16) external {
         IERC20(asset).transferFrom(msg.sender, address(atoken), amount);
-        atoken.mint(msg.sender, amount);
+        atoken.mint(msg.sender, _convertToShares(amount));
     }
 
     function withdraw(address asset, uint256 amount, address to) external returns (uint256) {
@@ -83,8 +85,10 @@ contract PoolMock {
         if (amount > liquidityAvailable) {
             amount = liquidityAvailable;
         }
-        vm.prank(address(atoken)); IERC20(asset).transfer(to, amount);
-        atoken.burn(msg.sender, amount);
+        vm.prank(address(atoken));
+        IERC20(asset).transfer(to, amount);
+
+        atoken.burn(msg.sender, _convertToShares(amount));
         return amount;
     }
 
@@ -114,6 +118,10 @@ contract PoolMock {
 
     function setLiquidityIndex(uint256 _liquidityIndex) external {
         liquidityIndex = _liquidityIndex;
+    }
+
+    function _convertToShares(uint256 amount) internal view returns (uint256) {
+        return amount * 1e27 / liquidityIndex;
     }
 
 }
