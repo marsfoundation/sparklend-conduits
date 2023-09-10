@@ -31,21 +31,20 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     /*** Storage                                                                                ***/
     /**********************************************************************************************/
 
-    address public immutable pool;
-    address public immutable pot;
+    address public override immutable pool;
+    address public override immutable pot;
 
-    address public roles;
-    address public registry;
-    uint256 public subsidySpread;
+    address public override roles;
+    address public override registry;
+    uint256 public override subsidySpread;
 
-    // TODO: Override
-    mapping(address => bool) public enabled;
+    mapping(address => bool) public override enabled;
 
-    mapping(address => uint256) public totalShares;
-    mapping(address => uint256) public totalRequestedShares;
+    mapping(address => uint256) public override totalShares;
+    mapping(address => uint256) public override totalRequestedShares;
 
-    mapping(address => mapping(bytes32 => uint256)) public shares;
-    mapping(address => mapping(bytes32 => uint256)) public requestedShares;
+    mapping(address => mapping(bytes32 => uint256)) public override shares;
+    mapping(address => mapping(bytes32 => uint256)) public override requestedShares;
 
     /**********************************************************************************************/
     /*** Modifiers                                                                              ***/
@@ -77,25 +76,25 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     /*** Admin Functions                                                                        ***/
     /**********************************************************************************************/
 
-    function setRoles(address _roles) external auth {
+    function setRoles(address _roles) external override auth {
         roles = _roles;
 
         emit SetRoles(_roles);
     }
 
-    function setRegistry(address _registry) external auth {
+    function setRegistry(address _registry) external override auth {
         registry = _registry;
 
         emit SetRegistry(_registry);
     }
 
-    function setSubsidySpread(uint256 _subsidySpread) external auth {
+    function setSubsidySpread(uint256 _subsidySpread) external override auth {
         subsidySpread = _subsidySpread;
 
         emit SetSubsidySpread(_subsidySpread);
     }
 
-    function setAssetEnabled(address asset, bool enabled_) external auth {
+    function setAssetEnabled(address asset, bool enabled_) external override auth {
         enabled[asset] = enabled_;
         asset.safeApprove(pool, enabled_ ? type(uint256).max : 0);
 
@@ -106,7 +105,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     /*** Operator Functions                                                                     ***/
     /**********************************************************************************************/
 
-    function deposit(bytes32 ilk, address asset, uint256 amount) external ilkAuth(ilk) {
+    function deposit(bytes32 ilk, address asset, uint256 amount) external override ilkAuth(ilk) {
         require(enabled[asset], "SparkConduit/asset-disabled");
         require(
             requestedShares[asset][ilk] == 0,
@@ -128,7 +127,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     }
 
     function withdraw(bytes32 ilk, address asset, uint256 maxAmount)
-        external ilkAuth(ilk) returns (uint256 amount)
+        public override ilkAuth(ilk) returns (uint256 amount)
     {
         // Constrain the amount that can be withdrawn by the max amount
         amount = _min(maxAmount, maxWithdraw(ilk, asset));
@@ -156,8 +155,9 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         emit Withdraw(ilk, asset, destination, amount);
     }
 
-    function requestFunds(bytes32 ilk, address asset, uint256 amount) external ilkAuth(ilk) {
-        // TODO: Update this to avoid DoS vector
+    function requestFunds(bytes32 ilk, address asset, uint256 amount)
+        public override ilkAuth(ilk)
+    {
         require(getAvailableLiquidity(asset) == 0, "SparkConduit/non-zero-liquidity");
 
         uint256 sharesToRequest = _convertToShares(asset, amount);
@@ -175,7 +175,25 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         emit RequestFunds(ilk, asset, amount);
     }
 
-    function cancelFundRequest(bytes32 ilk, address asset) external ilkAuth(ilk) {
+    function withdrawAndRequestFunds(bytes32 ilk, address asset, uint256 requestAmount)
+        external override ilkAuth(ilk) returns (uint256 amountWithdrawn, uint256 requestedFunds)
+    {
+        uint256 availableLiquidity = getAvailableLiquidity(asset);
+
+        // If there is liquidity available, withdraw it before requesting.
+        if (availableLiquidity != 0) {
+            uint256 amountToWithdraw = _min(availableLiquidity, requestAmount);
+            amountWithdrawn = withdraw(ilk, asset, amountToWithdraw);
+        }
+
+        // If the withdrawal didn't satisfy the full amount, request the remainder.
+        if (requestAmount > amountWithdrawn) {
+            unchecked { requestedFunds = requestAmount - amountWithdrawn; }
+            requestFunds(ilk, asset, requestedFunds);
+        }
+    }
+
+    function cancelFundRequest(bytes32 ilk, address asset) external override ilkAuth(ilk) {
         uint256 requestedShares_ = requestedShares[asset][ilk];
         require(requestedShares_ > 0, "SparkConduit/no-active-fund-requests");
 
@@ -189,17 +207,19 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     /*** View Functions                                                                         ***/
     /**********************************************************************************************/
 
-    function maxDeposit(bytes32, address asset) public view returns (uint256 maxDeposit_) {
+    function maxDeposit(bytes32, address asset) public view override returns (uint256 maxDeposit_) {
         // Note: Purposefully ignoring any potential supply cap limits on Spark.
         //       This is because we assume the supply cap on this asset to be turned off.
         return enabled[asset] ? type(uint256).max : 0;
     }
 
-    function maxWithdraw(bytes32 ilk, address asset) public view returns (uint256 maxWithdraw_) {
+    function maxWithdraw(bytes32 ilk, address asset) public view override returns (uint256 maxWithdraw_) {
         return _min(_convertToAssets(asset, shares[asset][ilk]), getAvailableLiquidity(asset));
     }
 
-    function getInterestData(address asset) external view returns (InterestData memory data) {
+    function getInterestData(address asset)
+        external view override returns (InterestData memory data)
+    {
         // Convert the DSR to a yearly APR
         uint256 dsr          = (PotLike(pot).dsr() - 1e27) * 365 days;
         uint256 totalShares_ = totalShares[asset];
@@ -214,7 +234,11 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     }
 
     function getAssetData(address asset)
-        external view returns (bool _enabled, uint256 _totalDeposits, uint256 _totalWithdrawals)
+        external view override returns (
+            bool _enabled,
+            uint256 _totalDeposits,
+            uint256 _totalWithdrawals
+        )
     {
         uint256 liquidityIndex = IPool(pool).getReserveNormalizedIncome(asset);
         return (
@@ -225,7 +249,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     }
 
     function getPosition(address asset, bytes32 ilk)
-        external view returns (uint256 deposits, uint256 requestedFunds)
+        external view override returns (uint256 _deposits, uint256 _requestedShares)
     {
         uint256 liquidityIndex = IPool(pool).getReserveNormalizedIncome(asset);
         return (
@@ -234,23 +258,25 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         );
     }
 
-    function getTotalDeposits(address asset) external view returns (uint256) {
+    function getTotalDeposits(address asset) external view override returns (uint256) {
         return _convertToAssets(asset, totalShares[asset]);
     }
 
-    function getTotalRequestedFunds(address asset) external view returns (uint256) {
+    function getTotalRequestedFunds(address asset) external view override returns (uint256) {
         return _convertToAssets(asset, totalRequestedShares[asset]);
     }
 
-    function getDeposits(address asset, bytes32 ilk) external view returns (uint256) {
+    function getDeposits(address asset, bytes32 ilk) external view override returns (uint256) {
         return _convertToAssets(asset, shares[asset][ilk]);
     }
 
-    function getRequestedFunds(address asset, bytes32 ilk) external view returns (uint256) {
+    function getRequestedFunds(address asset, bytes32 ilk)
+        external view override returns (uint256)
+    {
         return _convertToAssets(asset, requestedShares[asset][ilk]);
     }
 
-    function getAvailableLiquidity(address asset) public view returns (uint256) {
+    function getAvailableLiquidity(address asset) public view override returns (uint256) {
         return IERC20(asset).balanceOf(IPool(pool).getReserveData(asset).aTokenAddress);
     }
 
