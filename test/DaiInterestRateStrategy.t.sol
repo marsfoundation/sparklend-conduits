@@ -5,7 +5,7 @@ import 'dss-test/DssTest.sol';
 
 import { DaiInterestRateStrategy, DataTypes } from '../src/DaiInterestRateStrategy.sol';
 
-import { DaiMock, InterestRateDataSourceMock } from './Mocks.sol';
+import { DaiMock, InterestRateDataSourceMock } from './mocks/Mocks.sol';
 
 contract DaiInterestRateStrategyTestBase is DssTest {
 

@@ -9,7 +9,9 @@ import { UpgradeableProxy } from 'upgradeable-proxy/UpgradeableProxy.sol';
 
 import { SparkConduit, IInterestRateDataSource } from '../src/SparkConduit.sol';
 
-import { PoolMock, PotMock, RolesMock, RegistryMock } from "./Mocks.sol";
+import { PoolMock, PotMock, RolesMock, RegistryMock } from "./mocks/Mocks.sol";
+
+import { ATokenMock } from "./mocks/ATokenMock.sol";
 
 // TODO: Show how requested shares/shares are handled during an increase in exchange rate
 
@@ -29,7 +31,7 @@ contract SparkConduitTestBase is DssTest {
     RolesMock    roles;
     RegistryMock registry;
     MockERC20    token;
-    MockERC20    atoken;
+    ATokenMock   atoken;
 
     SparkConduit conduit;
 
@@ -50,8 +52,11 @@ contract SparkConduitTestBase is DssTest {
 
         registry.setBuffer(buffer);  // TODO: Update this, make buffer per ilk
 
-        token  = new MockERC20('Token', 'TKN', 18);
+        token = new MockERC20('Token', 'TKN', 18);
+
         atoken = pool.atoken();
+
+        atoken.setUnderlying(address(token));
 
         UpgradeableProxy proxy = new UpgradeableProxy();
         SparkConduit     impl  = new SparkConduit(address(pool),address(pot));
@@ -70,6 +75,23 @@ contract SparkConduitTestBase is DssTest {
         // Set default liquidity index to be greater than 1:1
         // 100 / 125% = 80 shares for 100 asset deposit
         pool.setLiquidityIndex(125_00 * RBPS);
+    }
+
+    function _assertATokenState(
+        uint256 scaledBalance,
+        uint256 scaledTotalSupply,
+        uint256 balance,
+        uint256 totalSupply
+    ) internal {
+        assertEq(atoken.scaledBalanceOf(address(conduit)), scaledBalance);
+        assertEq(atoken.scaledTotalSupply(),               scaledTotalSupply);
+        assertEq(atoken.balanceOf(address(conduit)),       balance);
+        assertEq(atoken.totalSupply(),                     totalSupply);
+    }
+
+    function _assertTokenState(uint256 bufferBalance, uint256 atokenBalance) internal {
+        assertEq(token.balanceOf(buffer),          bufferBalance);
+        assertEq(token.balanceOf(address(atoken)), atokenBalance);
     }
 
 }
@@ -133,11 +155,17 @@ contract SparkConduitDepositTests is SparkConduitTestBase {
     }
 
     function test_deposit() public {
-        assertEq(token.balanceOf(buffer),          100 ether);
-        assertEq(token.balanceOf(address(atoken)), 0);
+        _assertTokenState({
+            bufferBalance: 100 ether,
+            atokenBalance: 0
+        });
 
-        assertEq(atoken.balanceOf(address(conduit)), 0);
-        assertEq(atoken.totalSupply(),               0);
+        _assertATokenState({
+            scaledBalance:     0,
+            scaledTotalSupply: 0,
+            balance:           0,
+            totalSupply:       0
+        });
 
         assertEq(conduit.shares(address(token), ILK), 0);
         assertEq(conduit.totalShares(address(token)), 0);
@@ -146,22 +174,34 @@ contract SparkConduitDepositTests is SparkConduitTestBase {
         emit Deposit(ILK, address(token), buffer, 100 ether);
         conduit.deposit(ILK, address(token), 100 ether);
 
-        assertEq(token.balanceOf(buffer),           0);
-        assertEq(token.balanceOf(address(atoken)),  100 ether);
+        _assertTokenState({
+            bufferBalance: 0,
+            atokenBalance: 100 ether
+        });
 
-        assertEq(atoken.balanceOf(address(conduit)), 80 ether);
-        assertEq(atoken.totalSupply(),               80 ether);
+        _assertATokenState({
+            scaledBalance:     80 ether,
+            scaledTotalSupply: 80 ether,
+            balance:           100 ether,
+            totalSupply:       100 ether
+        });
 
         assertEq(conduit.shares(address(token), ILK), 80 ether);
         assertEq(conduit.totalShares(address(token)), 80 ether);
     }
 
     function test_deposit_multiIlk_increasingIndex() public {
-        assertEq(token.balanceOf(buffer),          100 ether);
-        assertEq(token.balanceOf(address(atoken)), 0);
+        _assertTokenState({
+            bufferBalance: 100 ether,
+            atokenBalance: 0
+        });
 
-        assertEq(atoken.balanceOf(address(conduit)), 0);
-        assertEq(atoken.totalSupply(),               0);
+        _assertATokenState({
+            scaledBalance:     0,
+            scaledTotalSupply: 0,
+            balance:           0,
+            totalSupply:       0
+        });
 
         assertEq(conduit.shares(address(token), ILK), 0);
         assertEq(conduit.totalShares(address(token)), 0);
@@ -170,11 +210,17 @@ contract SparkConduitDepositTests is SparkConduitTestBase {
         emit Deposit(ILK, address(token), buffer, 100 ether);
         conduit.deposit(ILK, address(token), 100 ether);
 
-        assertEq(token.balanceOf(buffer),           0);
-        assertEq(token.balanceOf(address(atoken)),  100 ether);
+        _assertTokenState({
+            bufferBalance: 0,
+            atokenBalance: 100 ether
+        });
 
-        assertEq(atoken.balanceOf(address(conduit)), 80 ether);
-        assertEq(atoken.totalSupply(),               80 ether);
+        _assertATokenState({
+            scaledBalance:     80 ether,
+            scaledTotalSupply: 80 ether,
+            balance:           100 ether,
+            totalSupply:       100 ether
+        });
 
         assertEq(conduit.shares(address(token), ILK), 80 ether);
         assertEq(conduit.totalShares(address(token)), 80 ether);
@@ -187,11 +233,17 @@ contract SparkConduitDepositTests is SparkConduitTestBase {
         emit Deposit(ILK2, address(token), buffer, 50 ether);
         conduit.deposit(ILK2, address(token), 50 ether);
 
-        assertEq(token.balanceOf(buffer),           0);
-        assertEq(token.balanceOf(address(atoken)),  150 ether);
+        _assertTokenState({
+            bufferBalance: 0,
+            atokenBalance: 150 ether
+        });
 
-        assertEq(atoken.balanceOf(address(conduit)), 111.25 ether);  // 80 + 31.25
-        assertEq(atoken.totalSupply(),               111.25 ether);
+        _assertATokenState({
+            scaledBalance:     111.25 ether,  // 80 + 31.25
+            scaledTotalSupply: 111.25 ether,
+            balance:           178 ether,  // 80 * 1.6 + 50 = 178
+            totalSupply:       178 ether
+        });
 
         assertEq(conduit.shares(address(token), ILK),  80 ether);
         assertEq(conduit.shares(address(token), ILK2), 31.25 ether);
