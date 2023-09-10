@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.13;
 
-import { IPool }      from 'aave-v3-core/contracts/interfaces/IPool.sol';
-import { WadRayMath } from 'aave-v3-core/contracts/protocol/libraries/math/WadRayMath.sol';
+import { IPool } from 'aave-v3-core/contracts/interfaces/IPool.sol';
 
 import { IERC20 }    from 'erc20-helpers/interfaces/IERC20.sol';
 import { SafeERC20 } from 'erc20-helpers/SafeERC20.sol';
@@ -26,7 +25,6 @@ interface RegistryLike {
 
 contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSource {
 
-    using WadRayMath for uint256;
     using SafeERC20  for address;
 
     /**********************************************************************************************/
@@ -40,7 +38,6 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     address public override registry;
     uint256 public override subsidySpread;
 
-    // TODO: Override
     mapping(address => bool) public override enabled;
 
     mapping(address => uint256) public override totalShares;
@@ -161,7 +158,6 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     function requestFunds(bytes32 ilk, address asset, uint256 amount)
         external override ilkAuth(ilk)
     {
-        // TODO: Update this to avoid DoS vector
         require(getAvailableLiquidity(asset) == 0, "SparkConduit/non-zero-liquidity");
 
         uint256 sharesToRequest = _convertToShares(asset, amount);
@@ -214,8 +210,8 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         return InterestData({
             baseRate:    uint128(dsr + subsidySpread),
             subsidyRate: uint128(dsr),
-            currentDebt: uint128(totalShares_.rayMul(index)),
-            targetDebt:  uint128((totalShares_ - totalRequestedShares[asset]).rayMul(index))
+            currentDebt: uint128(_rayMul(totalShares_, index)),
+            targetDebt:  uint128(_rayMul(totalShares_ - totalRequestedShares[asset], index))
         });
     }
 
@@ -229,8 +225,8 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         uint256 liquidityIndex = IPool(pool).getReserveNormalizedIncome(asset);
         return (
             enabled[asset],
-            totalShares[asset].rayMul(liquidityIndex),
-            totalRequestedShares[asset].rayMul(liquidityIndex)
+            _rayMul(totalShares[asset],         liquidityIndex),
+            _rayMul(totalRequestedShares[asset],liquidityIndex)
         );
     }
 
@@ -239,8 +235,8 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     {
         uint256 liquidityIndex = IPool(pool).getReserveNormalizedIncome(asset);
         return (
-            shares[asset][ilk].rayMul(liquidityIndex),
-            requestedShares[asset][ilk].rayMul(liquidityIndex)
+            _rayMul(shares[asset][ilk],          liquidityIndex),
+            _rayMul(requestedShares[asset][ilk], liquidityIndex)
         );
     }
 
@@ -271,15 +267,23 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     /**********************************************************************************************/
 
     function _convertToAssets(address asset, uint256 amount) internal view returns (uint256) {
-        return amount.rayMul(IPool(pool).getReserveNormalizedIncome(asset));
+        return _rayMul(amount, IPool(pool).getReserveNormalizedIncome(asset));
     }
 
     function _convertToShares(address asset, uint256 amount) internal view returns (uint256) {
-        return amount.rayDiv(IPool(pool).getReserveNormalizedIncome(asset));
+        return _rayDiv(amount, IPool(pool).getReserveNormalizedIncome(asset));
     }
 
     function _min(uint256 a, uint256 b) internal pure returns (uint256) {
         return a < b ? a : b;
+    }
+
+    function _rayMul(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        z = x * y / 1e27;
+    }
+
+    function _rayDiv(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        z = x * 1e27 / y;
     }
 
 }
