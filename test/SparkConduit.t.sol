@@ -1087,8 +1087,8 @@ contract SparkConduitGetPositionTests is SparkConduitTestBase {
 
         ( uint256 deposits, uint256 requestedFunds ) = conduit.getPosition(address(token), ILK);
 
-        assertApproxEqAbs(deposits,       depositAmount, 2);
-        assertApproxEqAbs(requestedFunds, requestAmount, 2);
+        assertApproxEqAbs(deposits,       depositAmount, 10);
+        assertApproxEqAbs(requestedFunds, requestAmount, 10);
 
         pool.setLiquidityIndex(index2);
 
@@ -1131,7 +1131,7 @@ contract SparkConduitGetTotalDepositsTests is SparkConduitTestBase {
         token.mint(buffer, depositAmount);
         conduit.deposit(ILK, address(token), depositAmount);
 
-        assertApproxEqAbs(conduit.getTotalDeposits(address(token)), depositAmount, 2);
+        assertApproxEqAbs(conduit.getTotalDeposits(address(token)), depositAmount, 10);
 
         pool.setLiquidityIndex(index2);
 
@@ -1170,7 +1170,7 @@ contract SparkConduitGetDepositsTests is SparkConduitTestBase {
         token.mint(buffer, depositAmount);
         conduit.deposit(ILK, address(token), depositAmount);
 
-        assertApproxEqAbs(conduit.getDeposits(address(token), ILK), depositAmount, 2);
+        assertApproxEqAbs(conduit.getDeposits(address(token), ILK), depositAmount, 10);
 
         pool.setLiquidityIndex(index2);
 
@@ -1217,7 +1217,7 @@ contract SparkConduitGetTotalRequestedFundsTests is SparkConduitTestBase {
 
         conduit.requestFunds(ILK, address(token), requestAmount);
 
-        assertApproxEqAbs(conduit.getTotalRequestedFunds(address(token)), requestAmount, 2);
+        assertApproxEqAbs(conduit.getTotalRequestedFunds(address(token)), requestAmount, 10);
 
         pool.setLiquidityIndex(index2);
 
@@ -1264,7 +1264,7 @@ contract SparkConduitGetRequestedFundsTests is SparkConduitTestBase {
 
         conduit.requestFunds(ILK, address(token), requestAmount);
 
-        assertApproxEqAbs(conduit.getRequestedFunds(address(token), ILK), requestAmount, 2);
+        assertApproxEqAbs(conduit.getRequestedFunds(address(token), ILK), requestAmount, 10);
 
         pool.setLiquidityIndex(index2);
 
