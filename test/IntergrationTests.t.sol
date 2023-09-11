@@ -16,18 +16,21 @@ import { SparkConduit, IInterestRateDataSource } from 'src/SparkConduit.sol';
 
 import { IAToken } from "test/Interfaces.sol";
 
-contract ConduitTestBase is DssTest {
+contract ConduitIntegrationTestBase is DssTest {
 
     address DAI  = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
     address ADAI = 0x4DEDf26112B3Ec8eC46e7E31EA5e123490B05B8B;
     address POOL = 0xC13e21B648A5Ee794902342038FF3aDAB66BE987;
     address POT  = 0x197E90f9FAD81970bA7976f33CbD77088E5D7cf7;
 
-    address admin    = makeAddr("admin");
-    address buffer   = makeAddr("buffer");
-    address operator = makeAddr("operator");
+    address admin     = makeAddr("admin");
+    address buffer1   = makeAddr("buffer1");
+    address buffer2   = makeAddr("buffer2");
+    address operator1 = makeAddr("operator1");
+    address operator2 = makeAddr("operator2");
 
-    bytes32 constant ILK = 'some-ilk';
+    bytes32 constant ILK1 = 'ilk1';
+    bytes32 constant ILK2 = 'ilk2';
 
     uint256 LIQUIDITY;    // dai.balanceOf(ADAI)
     uint256 ADAI_SUPPLY;  // aToken.totalSupply()
@@ -63,109 +66,20 @@ contract ConduitTestBase is DssTest {
         conduit.setRoles(address(roles));
         conduit.setRegistry(address(registry));
 
-        registry.file(ILK, "buffer", buffer);
+        registry.file(ILK1, "buffer", buffer1);
+        registry.file(ILK2, "buffer", buffer2);
 
-        _setupOperatorRole(ILK, address(this));  // TODO: Change
+        _setupOperatorRole(ILK1, operator1);  // TODO: Change
+        _setupOperatorRole(ILK2, operator2);
 
         // TODO: Use real buffer
-        vm.prank(buffer);
+        vm.prank(buffer1);
+        IERC20(DAI).approve(address(conduit), type(uint256).max);
+
+        vm.prank(buffer2);
         IERC20(DAI).approve(address(conduit), type(uint256).max);
 
         conduit.setAssetEnabled(DAI, true);
-    }
-
-    function test_deposit_integration() external {
-        deal(DAI, buffer, 100 ether);
-
-        assertEq(dai.balanceOf(buffer), 100 ether);
-        assertEq(dai.balanceOf(ADAI),   LIQUIDITY);
-
-        assertEq(aToken.scaledBalanceOf(address(conduit)), 0);
-        assertEq(aToken.balanceOf(address(conduit)),       0);
-        assertEq(aToken.totalSupply(),                     ADAI_SUPPLY);
-
-        assertEq(conduit.shares(DAI, ILK), 0);
-        assertEq(conduit.totalShares(DAI), 0);
-
-        conduit.deposit(ILK, DAI, 100 ether);
-
-        assertEq(dai.balanceOf(buffer), 0);
-        assertEq(dai.balanceOf(ADAI),   LIQUIDITY + 100 ether);
-
-        uint256 expectedShares = 100 ether * 1e27 / INDEX;
-
-        assertApproxEqAbs(aToken.scaledBalanceOf(address(conduit)), expectedShares, 1);
-        assertApproxEqAbs(conduit.shares(DAI, ILK),                 expectedShares, 1);
-        assertApproxEqAbs(conduit.totalShares(DAI),                 expectedShares, 1);
-
-        assertEq(aToken.balanceOf(address(conduit)), 100 ether);
-        assertEq(aToken.totalSupply(),               ADAI_SUPPLY + 100 ether);
-
-        vm.warp(block.timestamp + 1 days);
-
-        assertApproxEqAbs(aToken.scaledBalanceOf(address(conduit)), expectedShares, 1);
-        assertApproxEqAbs(conduit.shares(DAI, ILK),                 expectedShares, 1);
-        assertApproxEqAbs(conduit.totalShares(DAI),                 expectedShares, 1);
-
-        uint256 newIndex = pool.getReserveNormalizedIncome(DAI);
-
-        uint256 expectedValue  = expectedShares * newIndex / 1e27;
-        uint256 expectedSupply = (ADAI_SUPPLY + 100 ether) * 1e27 / INDEX * newIndex / 1e27;
-
-        // Show interest accrual
-        assertEq(expectedValue, 100.013366958918209600 ether);
-
-        assertApproxEqAbs(aToken.balanceOf(address(conduit)), expectedValue,  2);
-        assertApproxEqAbs(aToken.totalSupply(),               expectedSupply, 1);
-    }
-
-    function test_withdraw_integration() external {
-        deal(DAI, buffer, 100 ether);
-
-        conduit.deposit(ILK, DAI, 100 ether);
-
-        assertEq(dai.balanceOf(buffer), 0);
-        assertEq(dai.balanceOf(ADAI),   LIQUIDITY + 100 ether);
-
-        uint256 expectedShares = 100 ether * 1e27 / INDEX;
-
-        assertApproxEqAbs(aToken.scaledBalanceOf(address(conduit)), expectedShares, 1);
-        assertApproxEqAbs(conduit.shares(DAI, ILK),                 expectedShares, 1);
-        assertApproxEqAbs(conduit.totalShares(DAI),                 expectedShares, 1);
-
-        assertEq(aToken.balanceOf(address(conduit)), 100 ether);
-        assertEq(aToken.totalSupply(),               ADAI_SUPPLY + 100 ether);
-
-        vm.warp(block.timestamp + 1 days);
-
-        uint256 newIndex = pool.getReserveNormalizedIncome(DAI);
-
-        uint256 expectedValue  = expectedShares * newIndex / 1e27;
-        uint256 expectedSupply = (ADAI_SUPPLY + 100 ether) * 1e27 / INDEX * newIndex / 1e27;
-
-        // Show interest accrual
-        assertEq(expectedValue, 100.013366958918209600 ether);
-
-        assertApproxEqAbs(aToken.scaledBalanceOf(address(conduit)), expectedShares, 1);
-        assertApproxEqAbs(conduit.shares(DAI, ILK),                 expectedShares, 1);
-        assertApproxEqAbs(conduit.totalShares(DAI),                 expectedShares, 1);
-
-        assertApproxEqAbs(aToken.balanceOf(address(conduit)), expectedValue,  2);
-        assertApproxEqAbs(aToken.totalSupply(),               expectedSupply, 1);
-
-        uint256 amountWithdrawn = conduit.withdraw(ILK, DAI, expectedValue);
-
-        assertEq(amountWithdrawn, expectedValue);
-
-        assertEq(dai.balanceOf(buffer), expectedValue);
-        assertEq(dai.balanceOf(ADAI),   LIQUIDITY + 100 ether - expectedValue);
-
-        assertApproxEqAbs(aToken.scaledBalanceOf(address(conduit)), 0, 2);
-        assertApproxEqAbs(aToken.balanceOf(address(conduit)),       0, 2);
-        assertApproxEqAbs(conduit.shares(DAI, ILK),                 0, 2);
-        assertApproxEqAbs(conduit.totalShares(DAI),                 0, 2);
-
-        assertApproxEqAbs(aToken.totalSupply(), expectedSupply - expectedValue, 1);
     }
 
     function _setupOperatorRole(bytes32 ilk_, address operator_) internal {
@@ -182,6 +96,111 @@ contract ConduitTestBase is DssTest {
         roles.setRoleAction(ilk_, ROLE, conduit_, conduit.withdraw.selector,          true);
         roles.setRoleAction(ilk_, ROLE, conduit_, conduit.requestFunds.selector,      true);
         roles.setRoleAction(ilk_, ROLE, conduit_, conduit.cancelFundRequest.selector, true);
+    }
+
+}
+
+contract ConduitDepositIntegrationTests is ConduitIntegrationTestBase {
+
+    function test_deposit_integration() external {
+        deal(DAI, buffer1, 100 ether);
+
+        assertEq(dai.balanceOf(buffer1), 100 ether);
+        assertEq(dai.balanceOf(ADAI),    LIQUIDITY);
+
+        assertEq(aToken.scaledBalanceOf(address(conduit)), 0);
+        assertEq(aToken.balanceOf(address(conduit)),       0);
+        assertEq(aToken.totalSupply(),                     ADAI_SUPPLY);
+
+        assertEq(conduit.shares(DAI, ILK1), 0);
+        assertEq(conduit.totalShares(DAI),  0);
+
+        vm.prank(operator1);
+        conduit.deposit(ILK1, DAI, 100 ether);
+
+        assertEq(dai.balanceOf(buffer1), 0);
+        assertEq(dai.balanceOf(ADAI),    LIQUIDITY + 100 ether);
+
+        uint256 expectedShares = 100 ether * 1e27 / INDEX;
+
+        assertApproxEqAbs(aToken.scaledBalanceOf(address(conduit)), expectedShares, 1);
+        assertApproxEqAbs(conduit.shares(DAI, ILK1),                expectedShares, 1);
+        assertApproxEqAbs(conduit.totalShares(DAI),                 expectedShares, 1);
+
+        assertEq(aToken.balanceOf(address(conduit)), 100 ether);
+        assertEq(aToken.totalSupply(),               ADAI_SUPPLY + 100 ether);
+
+        vm.warp(block.timestamp + 1 days);
+
+        assertApproxEqAbs(aToken.scaledBalanceOf(address(conduit)), expectedShares, 1);
+        assertApproxEqAbs(conduit.shares(DAI, ILK1),                expectedShares, 1);
+        assertApproxEqAbs(conduit.totalShares(DAI),                 expectedShares, 1);
+
+        uint256 newIndex = pool.getReserveNormalizedIncome(DAI);
+
+        uint256 expectedValue  = expectedShares * newIndex / 1e27;
+        uint256 expectedSupply = (ADAI_SUPPLY + 100 ether) * 1e27 / INDEX * newIndex / 1e27;
+
+        // Show interest accrual
+        assertEq(expectedValue, 100.013366958918209600 ether);
+
+        assertApproxEqAbs(aToken.balanceOf(address(conduit)), expectedValue,  2);
+        assertApproxEqAbs(aToken.totalSupply(),               expectedSupply, 1);
+    }
+
+}
+
+contract ConduitWithdrawIntegrationTests is ConduitIntegrationTestBase {
+
+    function test_withdraw_integration() external {
+        deal(DAI, buffer1, 100 ether);
+
+        vm.prank(operator1);
+        conduit.deposit(ILK1, DAI, 100 ether);
+
+        assertEq(dai.balanceOf(buffer1), 0);
+        assertEq(dai.balanceOf(ADAI),    LIQUIDITY + 100 ether);
+
+        uint256 expectedShares = 100 ether * 1e27 / INDEX;
+
+        assertApproxEqAbs(aToken.scaledBalanceOf(address(conduit)), expectedShares, 1);
+        assertApproxEqAbs(conduit.shares(DAI, ILK1),                expectedShares, 1);
+        assertApproxEqAbs(conduit.totalShares(DAI),                 expectedShares, 1);
+
+        assertEq(aToken.balanceOf(address(conduit)), 100 ether);
+        assertEq(aToken.totalSupply(),               ADAI_SUPPLY + 100 ether);
+
+        vm.warp(block.timestamp + 1 days);
+
+        uint256 newIndex = pool.getReserveNormalizedIncome(DAI);
+
+        uint256 expectedValue  = expectedShares * newIndex / 1e27;
+        uint256 expectedSupply = (ADAI_SUPPLY + 100 ether) * 1e27 / INDEX * newIndex / 1e27;
+
+        // Show interest accrual
+        assertEq(expectedValue, 100.013366958918209600 ether);
+
+        assertApproxEqAbs(aToken.scaledBalanceOf(address(conduit)), expectedShares, 1);
+        assertApproxEqAbs(conduit.shares(DAI, ILK1),                expectedShares, 1);
+        assertApproxEqAbs(conduit.totalShares(DAI),                 expectedShares, 1);
+
+        assertApproxEqAbs(aToken.balanceOf(address(conduit)), expectedValue,  2);
+        assertApproxEqAbs(aToken.totalSupply(),               expectedSupply, 1);
+
+        vm.prank(operator1);
+        uint256 amountWithdrawn = conduit.withdraw(ILK1, DAI, expectedValue);
+
+        assertEq(amountWithdrawn, expectedValue);
+
+        assertEq(dai.balanceOf(buffer1), expectedValue);
+        assertEq(dai.balanceOf(ADAI),   LIQUIDITY + 100 ether - expectedValue);
+
+        assertApproxEqAbs(aToken.scaledBalanceOf(address(conduit)), 0, 2);
+        assertApproxEqAbs(aToken.balanceOf(address(conduit)),       0, 2);
+        assertApproxEqAbs(conduit.shares(DAI, ILK1),                0, 2);
+        assertApproxEqAbs(conduit.totalShares(DAI),                 0, 2);
+
+        assertApproxEqAbs(aToken.totalSupply(), expectedSupply - expectedValue, 1);
     }
 
 }
