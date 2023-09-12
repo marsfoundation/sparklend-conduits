@@ -56,3 +56,6 @@ forge test
 `roles` - The roles contract to perform operator authentication.
 `registry` - Maps ilks to allocation buffer.
 `subsidySpread` - The delta between the Base Rate and the Subsidy Rate. [RAY]
+
+![WithdrawSpark](https://github.com/marsfoundation/spark-conduits/assets/44272939/fd64b9e2-28f3-45c6-8deb-7d43283e9443)
+![DepositSpark](https://github.com/marsfoundation/spark-conduits/assets/44272939/2a7cf453-3a7b-4d04-a0cd-d390cfeb8ec2)
