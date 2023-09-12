@@ -213,7 +213,9 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         return enabled[asset] ? type(uint256).max : 0;
     }
 
-    function maxWithdraw(bytes32 ilk, address asset) public view override returns (uint256 maxWithdraw_) {
+    function maxWithdraw(bytes32 ilk, address asset)
+        public view override returns (uint256 maxWithdraw_)
+    {
         return _min(_convertToAssets(asset, shares[asset][ilk]), getAvailableLiquidity(asset));
     }
 

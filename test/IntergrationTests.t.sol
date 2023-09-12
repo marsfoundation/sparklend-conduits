@@ -98,12 +98,28 @@ contract ConduitIntegrationTestBase is DssTest {
         roles.setRoleAction(ilk_, ROLE, conduit_, conduit.cancelFundRequest.selector, true);
     }
 
+    function _assertInvariants() internal {
+        assertEq(conduit.getTotalDeposits(DAI), aToken.balanceOf(address(conduit)));
+        assertEq(
+            conduit.getTotalDeposits(DAI),
+            conduit.getDeposits(DAI, ILK1) + conduit.getDeposits(DAI, ILK2)
+        );
+
+        assertEq(conduit.totalShares(DAI), aToken.scaledBalanceOf(address(conduit)));
+        assertEq(
+            conduit.totalShares(DAI),
+            conduit.shares(DAI, ILK1) + conduit.shares(DAI, ILK2)
+        );
+    }
+
 }
 
 contract ConduitDepositIntegrationTests is ConduitIntegrationTestBase {
 
-    function test_deposit_integration() external {
+    function test_deposit_singleIlk_valueAccrual() external {
         deal(DAI, buffer1, 100 ether);
+
+        _assertInvariants();
 
         assertEq(dai.balanceOf(buffer1), 100 ether);
         assertEq(dai.balanceOf(ADAI),    LIQUIDITY);
@@ -117,6 +133,8 @@ contract ConduitDepositIntegrationTests is ConduitIntegrationTestBase {
 
         vm.prank(operator1);
         conduit.deposit(ILK1, DAI, 100 ether);
+
+        _assertInvariants();
 
         assertEq(dai.balanceOf(buffer1), 0);
         assertEq(dai.balanceOf(ADAI),    LIQUIDITY + 100 ether);
