@@ -21,3 +21,6 @@ Calling `requestFunds()` twice will override the previous fund request instead o
 `roles` - The roles contract to perform operator authentication.
 `registry` - Maps ilks to allocation buffer.
 `subsidySpread` - The delta between the Base Rate and the Subsidy Rate. [RAY]
+
+![WithdrawSpark](https://github.com/marsfoundation/spark-conduits/assets/44272939/a3e15eca-b8f8-42e8-bd18-0bc964c3efc7)
+![DepositSpark](https://github.com/marsfoundation/spark-conduits/assets/44272939/ae246844-94de-4720-99d0-7ee8f7683a80)
