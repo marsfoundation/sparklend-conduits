@@ -21,9 +21,9 @@ The Spark Conduit is a conduit contract designed to be used within the Maker All
 
 ### Admin Configuration
 
-`roles` - The roles contract to perform operator authentication.
-`registry` - Maps ilks to allocation buffer.
-`subsidySpread` - The delta between the Base Rate and the Subsidy Rate. [RAY]
+1. `roles`: The roles contract to perform operator authentication.
+2. `registry`:Maps ilks to allocation buffer.
+3. `subsidySpread`: The delta between the Base Rate and the Subsidy Rate. [RAY]
 
 ## `DaiInterestRateStrategy`
 
@@ -36,8 +36,9 @@ The `DaiInterestRateStrategy` implements two important functions:
 
     $$ borrowRate = maxRate - \frac{baseRate}{debtRatio} $$
 
-
 2. `recompute()`: This function is publicly callable and updates state.
+
+<img width="1718" alt="Screenshot 2023-09-12 at 3 17 15 PM" src="https://github.com/marsfoundation/spark-conduits/assets/44272939/9d879b61-2943-413d-ab85-e4f1391df37e">
 
 ## Functionality
 
@@ -52,7 +53,6 @@ The `deposit` function is used to move funds from a given `ilk`'s `buffer` into 
   <img src="https://github.com/marsfoundation/spark-conduits/assets/44272939/2a7cf453-3a7b-4d04-a0cd-d390cfeb8ec2" height="500" />
 </p>
 
-
 ### `withdraw`
 
 The `withdraw` function is used to move funds from the Conduit into a given `ilk`'s `buffer`. From the Conduit, the funds are used to `withdraw` from the Spark Pool. The result is that:
@@ -60,7 +60,6 @@ The `withdraw` function is used to move funds from the Conduit into a given `ilk
 1. Funds are moved from SparkLend's aToken for that asset to the `buffer`.
 2. The Conduit's aTokens corresponding to the underlying asset withdrawn are burned.
 3. The Conduit state to track the `ilk`'s portion of the aTokens in the Conduit is reduced.
-
 
 <p align="center">
   <img src="https://github.com/marsfoundation/spark-conduits/assets/44272939/fd64b9e2-28f3-45c6-8deb-7d43283e9443" height="500" />
@@ -102,5 +101,4 @@ To run the tests, do the following:
 ```
 forge test
 ```
-
 
