@@ -86,8 +86,11 @@ The result is that:
 ## Invariants
 
 $$ totalShares[asset] = \sum_{n=0}^{numIlks}{shares[asset][ilk]}  $$
+
 $$ totalRequestedShares[asset] = \sum_{n=0}^{numIlks}{requestedShares[asset][ilk]}  $$
+
 $$ totalShares[asset] = aToken.scaledBalanceOf(conduit)  $$
+
 $$ getTotalDeposits(assets) = aToken.balanceOf(conduit) $$
 
 ## Upgradeability
