@@ -31,12 +31,23 @@ The `DaiInterestRateStrategy` contract is used to calculate the interest rate th
 
 The `DaiInterestRateStrategy` implements two important functions:
 
-1. `calculateInterestRates()`: This function is called by SparkLend. The important distinction between this contract and the standard implementation is that there are two paths to determine interest.
-   1. When the `debtRatio` is greater than one, it means that the `targetDebt` is lower than the `currentDebt`, and the amount of outstanding debt needs to decrease. In this case: the borrow rate is calculated as follows:
+### `calculateInterestRates()`
+This function is called by SparkLend. The important distinction between this contract and the standard implementation is that there are two paths to determine interest:
 
-    $$ borrowRate = maxRate - \frac{baseRate}{debtRatio} $$
+#### `debtRatio == 1`
+When `debtRatio == 1`, the interest rate used to charge to DAI borrowers is the `baseRate`. This value is determined by Maker core governance.
 
-2. `recompute()`: This function is publicly callable and updates state.
+#### `debtRatio > 1`
+When `debtRatio > 1`, the interest rate is dynamically calculated based on the following function:
+
+$$ borrowRate = maxRate - \frac{maxRate - baseRate}{\frac{currentDebt}{targetDebt}} $$
+
+Below is an illustrative example of the above formula, with the following configuration:
+1. `maxRate = 75%`
+2. `baseRate = 5%`
+3. `currentDebt = 100`
+
+Each of the lines demonstrates a different scenario, where the amount of requested funds (and therefore the `targetDebt` is different). In the functions below, `r` is defined as the resulting interest rate, and `a` as the amount that has been returned after the original change in the target debt. The domains of each of these functions are limited from `debtRatio > 1`. It can be seen that the minimum rate returns back to the `baseRate` in all scenarios once all the requested liquidity has been repaid.
 
 <img width="1240" alt="Screenshot 2023-09-12 at 3 51 21 PM" src="https://github.com/marsfoundation/spark-conduits/assets/44272939/b383163d-c8ab-40dc-89ce-41464a7e4cc6">
 
@@ -91,11 +102,11 @@ $$ totalRequestedShares[asset] = \sum_{n=0}^{numIlks}{requestedShares[asset][ilk
 
 $$ totalShares[asset] = aToken.scaledBalanceOf(conduit)  $$
 
-$$ getTotalDeposits(assets) = aToken.balanceOf(conduit) $$
+$$ getTotalDeposits(asset) = aToken.balanceOf(conduit) $$
 
 ## Upgradeability
 
-Since Conduits will likely require maintenance as their desired usage evolves, they will be upgradeable contracts, using [`upgradeable-proxy`](https://github.com/marsfoundation/upgradeable-proxy) for upgradeable logic. This is a non-transparent proxy contract that gives upgrade rights to the PauseProxy.
+Since the Spark Conduit will likely require maintenance as its desired usage evolves, it will be an upgradeable contract, using [`upgradeable-proxy`](https://github.com/marsfoundation/upgradeable-proxy) for upgradeable logic. This is a non-transparent proxy contract that gives upgrade rights to the PauseProxy.
 
 ## Testing
 
