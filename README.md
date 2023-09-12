@@ -1,4 +1,13 @@
-# Spark Conduits
+# Spark Conduit
+
+![Foundry CI](https://github.com/marsfoundation/spark-conduits/actions/workflows/ci.yml/badge.svg)
+[![Foundry][foundry-badge]][foundry]
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://github.com/marsfoundation/spark-conduits/blob/master/LICENSE)
+
+[foundry]: https://getfoundry.sh/
+[foundry-badge]: https://img.shields.io/badge/Built%20with-Foundry-FFDB1C.svg
+
+## Overview
 
 Conduits required to connect the Maker allocation system to Spark. There will be two versions. One that is for local instances on Ethereum (and Goerli) and another for chains that require a bridge.
 
@@ -12,9 +21,40 @@ Allocators can cancel withdrawal intents by calling `cancelFundRequest()`.
 
 Calling `requestFunds()` twice will override the previous fund request instead of add to it.
 
+## Functionality
+
+### `deposit`
+
+The `deposit` function is used to move funds from a given `ilk`s `buffer` into the Conduit. From the Conduit, the funds can be deployed to a yield bearing strategy. This can happen atomically in the case of DeFi protocols, or can happen in a separate function call made by a permissioned actor in the case of Real World Asset strategies.
+
+<p align="center">
+  <img src="https://github.com/marsfoundation/spark-conduits/assets/44272939/ae246844-94de-4720-99d0-7ee8f7683a80" height="500" />
+</p>
+
+### `withdraw`
+
+The `withdraw` function is used to move funds from the Conduit into a given `ilk`s `buffer`. This can pull funds atomically from a yield bearing strategy in the case of DeFi protocols, or can pull the funds directly from the Conduit in the case of a Real World Asset strategy where the permissioned actor has returned the funds manually. Both situations require that there is available liquidity, which is why `maxWithdraw` exists. This view function should report the maximum amount of `asset` that can be withdrawn for a given `ilk`.
+
+<p align="center">
+  <img src="https://github.com/marsfoundation/spark-conduits/assets/44272939/a3e15eca-b8f8-42e8-bd18-0bc964c3efc7" height="500" />
+</p>
+
+
 ## SparkConduit
 
 `SparkConduit` is used for a local instance of Spark Lend. All dependency values are immediately accessible. The contract is upgradable to facilitate changes to logic if needed.
+
+## Upgradeability
+
+Since Conduits will likely require maintenance as their desired usage evolves, they will be upgradeable contracts, using [`upgradeable-proxy`](https://github.com/marsfoundation/upgradeable-proxy) for upgradeable logic. This is a non-transparent proxy contract that gives upgrade rights to the PauseProxy.
+
+## Testing
+
+To run the tests, do the following:
+
+```
+forge test
+```
 
 ### Configuration
 
