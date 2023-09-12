@@ -38,7 +38,7 @@ The `DaiInterestRateStrategy` implements two important functions:
 
 2. `recompute()`: This function is publicly callable and updates state.
 
-<img width="1718" alt="Screenshot 2023-09-12 at 3 17 15 PM" src="https://github.com/marsfoundation/spark-conduits/assets/44272939/9d879b61-2943-413d-ab85-e4f1391df37e">
+<img width="1240" alt="Screenshot 2023-09-12 at 3 51 21 PM" src="https://github.com/marsfoundation/spark-conduits/assets/44272939/b383163d-c8ab-40dc-89ce-41464a7e4cc6">
 
 ## Functionality
 
