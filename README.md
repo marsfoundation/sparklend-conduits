@@ -27,13 +27,19 @@ Calling `requestFunds()` twice will override the previous fund request instead o
 
 The `deposit` function is used to move funds from a given `ilk`s `buffer` into the Conduit. From the Conduit, the funds can be deployed to a yield bearing strategy. This can happen atomically in the case of DeFi protocols, or can happen in a separate function call made by a permissioned actor in the case of Real World Asset strategies.
 
-![DepositSpark](https://github.com/marsfoundation/spark-conduits/assets/44272939/ae246844-94de-4720-99d0-7ee8f7683a80)
+<p align="center">
+  <img src="https://github.com/marsfoundation/spark-conduits/assets/44272939/2a7cf453-3a7b-4d04-a0cd-d390cfeb8ec2" height="500" />
+</p>
+
 
 ### `withdraw`
 
 The `withdraw` function is used to move funds from the Conduit into a given `ilk`s `buffer`. This can pull funds atomically from a yield bearing strategy in the case of DeFi protocols, or can pull the funds directly from the Conduit in the case of a Real World Asset strategy where the permissioned actor has returned the funds manually. Both situations require that there is available liquidity, which is why `maxWithdraw` exists. This view function should report the maximum amount of `asset` that can be withdrawn for a given `ilk`.
 
-![WithdrawSpark](https://github.com/marsfoundation/spark-conduits/assets/44272939/a3e15eca-b8f8-42e8-bd18-0bc964c3efc7)
+<p align="center">
+  <img src="https://github.com/marsfoundation/spark-conduits/assets/44272939/fd64b9e2-28f3-45c6-8deb-7d43283e9443" height="500" />
+</p>
+
 
 ## `SparkConduit`
 
@@ -56,6 +62,3 @@ forge test
 `roles` - The roles contract to perform operator authentication.
 `registry` - Maps ilks to allocation buffer.
 `subsidySpread` - The delta between the Base Rate and the Subsidy Rate. [RAY]
-
-![WithdrawSpark](https://github.com/marsfoundation/spark-conduits/assets/44272939/fd64b9e2-28f3-45c6-8deb-7d43283e9443)
-![DepositSpark](https://github.com/marsfoundation/spark-conduits/assets/44272939/2a7cf453-3a7b-4d04-a0cd-d390cfeb8ec2)
