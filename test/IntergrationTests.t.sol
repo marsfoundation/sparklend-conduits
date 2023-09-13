@@ -3,7 +3,8 @@ pragma solidity ^0.8.13;
 
 import "dss-test/DssTest.sol";
 
-import { IPool } from "aave-v3-core/contracts/interfaces/IPool.sol";
+import { IAToken } from "aave-v3-core/contracts/interfaces/IAToken.sol";
+import { IPool }   from "aave-v3-core/contracts/interfaces/IPool.sol";
 
 import { AllocatorRegistry } from "dss-allocator/AllocatorRegistry.sol";
 import { AllocatorRoles }    from "dss-allocator/AllocatorRoles.sol";
@@ -13,8 +14,6 @@ import { IERC20 } from "erc20-helpers/interfaces/IERC20.sol";
 import { UpgradeableProxy } from "upgradeable-proxy/UpgradeableProxy.sol";
 
 import { SparkConduit, IInterestRateDataSource } from 'src/SparkConduit.sol';
-
-import { IAToken } from "test/Interfaces.sol";
 
 contract ConduitTestBase is DssTest {
 
