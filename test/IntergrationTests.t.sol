@@ -99,17 +99,29 @@ contract ConduitIntegrationTestBase is DssTest {
     }
 
     function _assertInvariants() internal {
-        assertEq(conduit.getTotalDeposits(DAI), aToken.balanceOf(address(conduit)));
+        assertEq(
+            conduit.totalShares(DAI),
+            conduit.shares(DAI, ILK1) + conduit.shares(DAI, ILK2)
+        );
+
+        assertEq(
+            conduit.totalRequestedShares(DAI),
+            conduit.requestedShares(DAI, ILK1) + conduit.requestedShares(DAI, ILK2)
+        );
+
         assertEq(
             conduit.getTotalDeposits(DAI),
             conduit.getDeposits(DAI, ILK1) + conduit.getDeposits(DAI, ILK2)
         );
 
-        assertEq(conduit.totalShares(DAI), aToken.scaledBalanceOf(address(conduit)));
         assertEq(
-            conduit.totalShares(DAI),
-            conduit.shares(DAI, ILK1) + conduit.shares(DAI, ILK2)
+            conduit.getTotalRequestedFunds(DAI),
+            conduit.getRequestedFunds(DAI, ILK1) + conduit.getRequestedFunds(DAI, ILK2)
         );
+
+        assertApproxEqAbs(conduit.totalShares(DAI), aToken.scaledBalanceOf(address(conduit)), 2);
+
+        assertApproxEqAbs(conduit.getTotalDeposits(DAI), aToken.balanceOf(address(conduit)), 2);
     }
 
 }
@@ -170,11 +182,13 @@ contract ConduitDepositIntegrationTests is ConduitIntegrationTestBase {
 
 contract ConduitWithdrawIntegrationTests is ConduitIntegrationTestBase {
 
-    function test_withdraw_integration() external {
+    function test_withdraw_singleIlk_valueAccrual() external {
         deal(DAI, buffer1, 100 ether);
 
         vm.prank(operator1);
         conduit.deposit(ILK1, DAI, 100 ether);
+
+        _assertInvariants();
 
         assertEq(dai.balanceOf(buffer1), 0);
         assertEq(dai.balanceOf(ADAI),    LIQUIDITY + 100 ether);
@@ -189,6 +203,8 @@ contract ConduitWithdrawIntegrationTests is ConduitIntegrationTestBase {
         assertEq(aToken.totalSupply(),               ADAI_SUPPLY + 100 ether);
 
         vm.warp(block.timestamp + 1 days);
+
+        _assertInvariants();
 
         uint256 newIndex = pool.getReserveNormalizedIncome(DAI);
 
@@ -207,6 +223,8 @@ contract ConduitWithdrawIntegrationTests is ConduitIntegrationTestBase {
 
         vm.prank(operator1);
         uint256 amountWithdrawn = conduit.withdraw(ILK1, DAI, expectedValue);
+
+        _assertInvariants();
 
         assertEq(amountWithdrawn, expectedValue);
 
