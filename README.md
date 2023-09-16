@@ -47,7 +47,7 @@ The `withdraw` function is used to `withdraw` funds from the SparkLend Pool into
 3. The Conduit state to track the `ilk`'s portion of the aTokens in the Conduit is reduced.
 
 <p align="center">
-  <img src="https://github.com/marsfoundation/spark-conduits/assets/44272939/fd64b9e2-28f3-45c6-8deb-7d43283e9443" height="500" />
+  <img src="https://github.com/marsfoundation/spark-conduits/assets/44272939/a55a7a74-1cc3-41ad-9f39-94f30a7a7ab5" height="500" />
 </p>
 
 ### `requestFunds`
