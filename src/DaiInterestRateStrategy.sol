@@ -13,8 +13,8 @@ import { IInterestRateDataSource } from './interfaces/IInterestRateDataSource.so
  *  @title DaiInterestRateStrategy
  *  @notice Flat interest rate curve which is a spread on the Subsidy Rate unless Allocators
  *          need liquidity.
- *  @dev    The interest rate strategy is intended to be used by Spark Lend pool that is supplied
- *          by a AllocatorDAO Conduit. Further, is implemented for DAI so that a the Spark Lend
+ *  @dev    The interest rate strategy is intended to be used by SparkLend Pools within the context
+ *          of the Maker Allocation System. Further, is implemented for DAI so that the SparkLend
  *          protocol should be able to unwind in case of debt limit changes downwards by
  *          incentivizing borrowers and lenders to move DAI into the protocol.
  *          Hence, it operates in two modes. Namely, it distinguishes the unhealthy scenario,
@@ -25,10 +25,16 @@ import { IInterestRateDataSource } from './interfaces/IInterestRateDataSource.so
  *  The base borrow rate is defined as:
  *
  *  ```
- *  Rbase = min(Rsubsidy, Rmax − Rspread)
+ *  Rbase = min(Rsubsidy + Rspread, Rmax)
  *  ```
  *
  *  Meaning, that the sum of the base rate and the spread cannot exceed the maximum rate.
+ *
+ *  This is done by clamping the subsidy rate before calculating the base borrow rate:
+ *
+ *  ```
+ *  Rsubsidy = min(Rsubsidy, Rmax - Rspread)
+ *  ```
  *
  *  Assume the allocation is healthy. The borrow rate is a constant defined as the subsidy
  *  rate + spread. The supply rate is computed as the borrow rate, multiplied with the ratio
@@ -40,13 +46,13 @@ import { IInterestRateDataSource } from './interfaces/IInterestRateDataSource.so
  *  Rsupply = Rborrow *  Cborrowed / (Cborrowed + Cavailable) or 0 if Cborrowed + Cavailable == 0
  *  ```
  *
- *  Note it yields that the borrow rate is always constant. Further, third-party suppliers are not
- *  incentivized as the supply rate will be below market rate unless allactors need capital
- *  returned.
+ *  Note in the healthy case that the borrow rate is always constant. Therefore, third-party
+ *  suppliers are not incentivized as the supply rate will be below market rate unless allocators
+ *  need capital returned.
  *
- *  In case the allocation is unhealthy, meaning that the debt is higher than the debt limit,
- *  the allocators will try to wind down. In that scenario, the interest rate strategy will try
- *  to incentivize borrowers to pay back their debt, and will try to incentivize suppliers to start
+ *  In case the allocation is unhealthy, meaning that the debt is higher than the target debt,
+ *  the allocators will try to wind down. In that scenario, the interest rate strategy will
+ *  incentivize borrowers to pay back their debt, and will try to incentivize suppliers to start
  *  lending DAI. Hence, the borrow and supply rate will increase according to the debt ratio of the
  *  D3M. More specifically, the rates are defined as:
  *
