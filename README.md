@@ -74,9 +74,11 @@ $$ totalShares[asset] = \sum_{n=0}^{numIlks}{shares[asset][ilk]}  $$
 
 $$ totalRequestedShares[asset] = \sum_{n=0}^{numIlks}{requestedShares[asset][ilk]}  $$
 
-$$ totalShares[asset] = aToken.scaledBalanceOf(conduit) $$
+$$ totalShares[asset] \le aToken.scaledBalanceOf(conduit) $$
 
-$$ getTotalDeposits(asset) = aToken.balanceOf(conduit) $$
+$$ getTotalDeposits(asset) \le aToken.balanceOf(conduit) $$
+
+NOTE: The last two invariants are not strict equalities because of the potential for a permissionless transfer of the aToken into the conduit. For this reason alone, they are expressed as inequalities.
 
 ## Upgradeability
 
@@ -90,8 +92,7 @@ To clarify interest rate-related naming in the contracts:
 - `subsidyRate` (SparkConduit): Annualized `dsr` from Maker Core
 - `subsidySpread` (SparkConduit): Spread set by Maker to make lending to decentralized collateral protocols advantageous. Borrow rate for DAI for the subDAOs.
 - `baseRate` (SparkConduit): Base rate that is used for borrowing by all subDAOs.
-- `spread` (DaiInterestRateStrategy): Spread above the `subsideRate` that borrowers pay and SubDAOs earn.
-
+- `spread` (DaiInterestRateStrategy): Spread above the `subsidyRate` that borrowers pay and SubDAOs earn.
 
 The `DaiInterestRateStrategy` implements two important functions:
 
