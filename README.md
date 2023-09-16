@@ -70,15 +70,21 @@ The result is that:
 
 ## Invariants
 
-$$ totalShares[asset] = \sum_{n=0}^{numIlks}{shares[asset][ilk]}  $$
+$$ totalShares[asset] = \sum_{n=0}^{numIlks}{shares[asset][ilk]} $$
 
-$$ totalRequestedShares[asset] = \sum_{n=0}^{numIlks}{requestedShares[asset][ilk]}  $$
+$$ totalRequestedShares[asset] = \sum_{n=0}^{numIlks}{requestedShares[asset][ilk]} $$
+
+$$ getTotalDeposits(asset) = \sum_{n=0}^{numIlks}{getDeposits(asset, ilk)} $$
+
+$$ getTotalRequestedFunds(asset) = \sum_{n=0}^{numIlks}{getRequestedFunds(asset, ilk)} $$
+
+$$ totalRequestedShares[asset] = \sum_{n=0}^{numIlks}{requestedShares[asset][ilk]} $$
 
 $$ totalShares[asset] \le aToken.scaledBalanceOf(conduit) $$
 
 $$ getTotalDeposits(asset) \le aToken.balanceOf(conduit) $$
 
-NOTE: The last two invariants are not strict equalities because of the potential for a permissionless transfer of the aToken into the conduit. For this reason alone, they are expressed as inequalities.
+**NOTE**: The last two invariants are not strict equalities because of the potential for a permissionless transfer of the aToken into the conduit. For this reason alone, they are expressed as inequalities.
 
 ## Upgradeability
 
