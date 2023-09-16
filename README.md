@@ -124,6 +124,16 @@ Each of the lines demonstrates a different scenario, where the amount of request
 
 It is important to note that Maker will penalize SubDAOs that do not perform withdrawals after the funds are returned by users. This is to prevent gamification occurring where SubDAOs can profit by artificially requesting funds to spike interest rates. This results in a very bad UX for SparkLend borrowers, so it is the intention that this functionality be used very rarely, and when it is done that the SubDAOs are financially incentivized to withdraw the returned liquidity immediately.
 
+## Technical Assumptions
+
+1. As with most MakerDAO contracts, non standard token implementations are assumed to not be supported. As examples, this includes tokens that:
+   - Do not have a decimals field or have more than 18 decimals.
+   - Do not revert and instead rely on a return value.
+   - Implement fee on transfer.
+   - Include rebasing logic.
+   - Implement callbacks/hooks.
+2. The penalization from Maker for not withdrawing funds after a fund request is sufficient to prevent gamification of the interest rate strategy.
+
 ## Testing
 
 To run the tests, do the following:
