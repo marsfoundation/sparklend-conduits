@@ -193,6 +193,16 @@ contract ConduitIntegrationTestBase is DssTest {
 
 contract ConduitDepositIntegrationTests is ConduitIntegrationTestBase {
 
+    function test_deposit_insufficientBalanceBoundary() external {
+        deal(DAI, buffer1, 100 ether);
+
+        vm.startPrank(operator1);
+        vm.expectRevert("SafeERC20/transfer-from-failed");
+        conduit.deposit(ILK1, DAI, 100 ether + 1);
+
+        conduit.deposit(ILK1, DAI, 100 ether);
+    }
+
     function test_deposit_singleIlk_valueAccrual() external {
         deal(DAI, buffer1, 100 ether);
 
