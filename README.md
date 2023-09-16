@@ -1,4 +1,4 @@
-# Spark Conduits
+# Spark Conduits ⚡
 
 ![Foundry CI](https://github.com/marsfoundation/spark-conduits/actions/workflows/ci.yml/badge.svg)
 [![Foundry][foundry-badge]][foundry]
@@ -13,6 +13,8 @@ The Spark Conduit is a conduit contract designed to be used within the Maker All
 
 1. `SparkConduit`: Facilitates the movement of funds between the Maker Allocation System and the SparkLend protocol.
 2. `DaiInterestRateStrategy`: Calculates the interest rate that is to be paid by all borrowers of DAI through the SparkLend protocol.
+
+In later iterations of this code's development, it is expected for other Spark Conduits to be developed to support multichain deployments.
 
 ## Roles/Permissions
 
