@@ -15,8 +15,6 @@ import { UpgradeableProxy } from "upgradeable-proxy/UpgradeableProxy.sol";
 
 import { SparkConduit, IInterestRateDataSource } from 'src/SparkConduit.sol';
 
-
-
 contract ConduitIntegrationTestBase is DssTest {
 
     address DAI  = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
