@@ -1,4 +1,4 @@
-# Spark Conduits
+# Spark Conduits ⚡
 
 ![Foundry CI](https://github.com/marsfoundation/spark-conduits/actions/workflows/ci.yml/badge.svg)
 [![Foundry][foundry-badge]][foundry]
@@ -13,6 +13,8 @@ The Spark Conduit is a conduit contract designed to be used within the Maker All
 
 1. `SparkConduit`: Facilitates the movement of funds between the Maker Allocation System and the SparkLend protocol.
 2. `DaiInterestRateStrategy`: Calculates the interest rate that is to be paid by all borrowers of DAI through the SparkLend protocol.
+
+In later iterations of this code's development, it is expected for other Spark Conduits to be developed to support multichain deployments.
 
 ## Roles/Permissions
 
@@ -123,6 +125,16 @@ Each of the lines demonstrates a different scenario, where the amount of request
 <img width="1240" alt="Screenshot 2023-09-12 at 3 51 21 PM" src="https://github.com/marsfoundation/spark-conduits/assets/44272939/b383163d-c8ab-40dc-89ce-41464a7e4cc6">
 
 It is important to note that Maker will penalize SubDAOs that do not perform withdrawals after the funds are returned by users. This is to prevent gamification occurring where SubDAOs can profit by artificially requesting funds to spike interest rates. This results in a very bad UX for SparkLend borrowers, so it is the intention that this functionality be used very rarely, and when it is done that the SubDAOs are financially incentivized to withdraw the returned liquidity immediately.
+
+## Technical Assumptions
+
+1. As with most MakerDAO contracts, non standard token implementations are assumed to not be supported. As examples, this includes tokens that:
+   - Do not have a decimals field or have more than 18 decimals.
+   - Do not revert and instead rely on a return value.
+   - Implement fee on transfer.
+   - Include rebasing logic.
+   - Implement callbacks/hooks.
+2. The penalization from Maker for not withdrawing funds after a fund request is sufficient to prevent gamification of the interest rate strategy.
 
 ## Testing
 
