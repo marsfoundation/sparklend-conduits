@@ -83,6 +83,13 @@ contract ConduitIntegrationTestBase is DssTest {
         conduit.setAssetEnabled(DAI, true);
     }
 
+    function test_assertInitialState() external {
+        assertEq(LIQUIDITY,          3042.894995046294009693 ether);
+        assertEq(ADAI_SUPPLY,        200_668_890.552846452355198767 ether);
+        assertEq(ADAI_SCALED_SUPPLY, 199_358_171.788361925857232792 ether);
+        assertEq(INDEX,              1.006574692939479711169088718e27);
+    }
+
     function _setupOperatorRole(bytes32 ilk_, address operator_) internal {
         uint8 ROLE = 0;
 
