@@ -449,4 +449,138 @@ contract ConduitWithdrawIntegrationTests is ConduitIntegrationTestBase {
         });
     }
 
+    function test_withdrawal_multiIlk_valueAccrual() external {
+        // Intentionally using same values for both ilks to show differences in interest accrual
+        deal(DAI, buffer1, 100 ether);
+        deal(DAI, buffer2, 100 ether);
+
+        vm.prank(operator1);
+        conduit.deposit(ILK1, DAI, 100 ether);
+
+        vm.warp(block.timestamp + 1 days);
+
+        vm.prank(operator2);
+        conduit.deposit(ILK2, DAI, 100 ether);
+
+        // Need new index because time has passed
+        uint256 index1 = pool.getReserveNormalizedIncome(DAI);
+
+        uint256 expectedIlk1Shares    = 100 ether * 1e27 / INDEX;
+        uint256 expectedIlk2Shares    = 100 ether * 1e27 / index1;
+        uint256 expectedScaledBalance = expectedIlk1Shares + expectedIlk2Shares + 1; // +1 for rounding
+
+        // Warp time to show interest accrual for both ilks
+        vm.warp(block.timestamp + 10 days);
+
+        // Need new index because time has passed
+        uint256 index2 = pool.getReserveNormalizedIncome(DAI);
+
+        uint256 expectedIlk1Value = expectedIlk1Shares * index2 / 1e27 + 1;  // +1 for rounding
+        uint256 expectedIlk2Value = expectedIlk2Shares * index2 / 1e27 + 1;  // +1 for rounding
+
+        uint256 poolValue1 = (ADAI_SUPPLY + 100 ether) * 1e27 / INDEX * index1 / 1e27;
+
+        // Value accrued for whole pool between deposits plus all new value accrued
+        uint256 expectedSupply = (poolValue1 + 100 ether) * 1e27 / index1 * index2 / 1e27 + 1; // +1 for rounding
+
+        // Show that ilk1 has more interest accrued than ilk2 because it has been in
+        // the pool for longer.
+        assertEq(expectedIlk1Value, 100.147054349327300547 ether);
+        assertEq(expectedIlk2Value, 100.133669522858884231 ether);
+
+        _assertInvariants();
+
+        _assertDaiState({
+            buffer1Balance: 0,
+            buffer2Balance: 0,
+            aTokenBalance:  LIQUIDITY + 100 ether + 100 ether
+        });
+
+        _assertATokenState({
+            scaledBalance:     expectedScaledBalance,
+            scaledTotalSupply: ADAI_SCALED_SUPPLY + expectedScaledBalance,
+            balance:           expectedIlk1Value + expectedIlk2Value,
+            totalSupply:       expectedSupply
+        });
+
+        _assertConduitState({
+            ilk1Shares:  expectedIlk1Shares,
+            ilk2Shares:  expectedIlk2Shares,
+            totalShares: expectedIlk1Shares + expectedIlk2Shares
+        });
+
+        vm.prank(operator1);
+        uint256 amountWithdrawn = conduit.withdraw(ILK1, DAI, expectedIlk1Value);
+
+        // Slightly less funds received than withdrawn, causing dust of 1 in accounting
+        assertApproxEqAbs(amountWithdrawn, expectedIlk1Value, 1);
+        assertLt(amountWithdrawn, expectedIlk1Value);
+
+        _assertInvariants();
+
+        uint256 combinedDeposits = 100 ether + 100 ether;
+
+        _assertDaiState({
+            buffer1Balance: expectedIlk1Value - 1,
+            buffer2Balance: 0,
+            aTokenBalance:  LIQUIDITY + combinedDeposits - (expectedIlk1Value - 1)
+        });
+
+        // Dust of 1 left after withdrawal
+        _assertATokenState({
+            scaledBalance:     1 + expectedIlk2Shares,
+            scaledTotalSupply: ADAI_SCALED_SUPPLY + 1 + expectedIlk2Shares,
+            balance:           1 + expectedIlk2Value,
+            totalSupply:       expectedSupply - expectedIlk1Value + 1
+        });
+
+        // TODO: Expect this to change after rounding fix is made, dust shares remaining
+        _assertConduitState({
+            ilk1Shares:  1,
+            ilk2Shares:  expectedIlk2Shares,
+            totalShares: 1 + expectedIlk2Shares
+        });
+
+        vm.warp(block.timestamp + 1 days);
+
+        // Need new index because time has passed
+        uint256 index3 = pool.getReserveNormalizedIncome(DAI);
+
+        expectedIlk2Value = expectedIlk2Shares * index3 / 1e27 + 1;  // +1 for rounding
+
+        vm.prank(operator2);
+        amountWithdrawn = conduit.withdraw(ILK2, DAI, expectedIlk2Value);
+
+        // Slightly less funds received than withdrawn, causing dust of 1 in accounting
+        assertApproxEqAbs(amountWithdrawn, expectedIlk2Value, 1);
+        assertLt(amountWithdrawn, expectedIlk2Value);
+
+        _assertInvariants();
+
+        _assertDaiState({
+            buffer1Balance: expectedIlk1Value - 1,
+            buffer2Balance: expectedIlk2Value - 1,
+            aTokenBalance:  LIQUIDITY + combinedDeposits - (expectedIlk1Value - 1) - (expectedIlk2Value - 1)
+        });
+
+        // Value accrued for whole pool between withdrawals
+        expectedSupply = (expectedSupply - (expectedIlk1Value - 1)) * 1e27 / index2 * index3 / 1e27 + 1; // +1 for rounding
+
+        // Dust of 1 left after withdrawal
+        _assertATokenState({
+            scaledBalance:     2,
+            scaledTotalSupply: ADAI_SCALED_SUPPLY + 2,
+            balance:           2,
+            totalSupply:       expectedSupply - (expectedIlk2Value - 1)  // Does not need to subtract ilk1
+        });
+
+        // TODO: Expect this to change after rounding fix is made, dust shares remaining
+        _assertConduitState({
+            ilk1Shares:  1,
+            ilk2Shares:  1,
+            totalShares: 1 + 1
+        });
+
+    }
+
 }
