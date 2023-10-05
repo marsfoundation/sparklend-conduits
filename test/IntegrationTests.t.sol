@@ -372,7 +372,7 @@ contract ConduitDepositIntegrationTests is ConduitIntegrationTestBase {
 
 contract ConduitWithdrawIntegrationTests is ConduitIntegrationTestBase {
 
-    function test_withdrawal_singleIlk_valueAccrual() external {
+    function test_withdraw_singleIlk_valueAccrual() external {
         deal(DAI, buffer1, 100 ether);
 
         vm.prank(operator1);
@@ -449,7 +449,7 @@ contract ConduitWithdrawIntegrationTests is ConduitIntegrationTestBase {
         });
     }
 
-    function test_withdrawal_multiIlk_valueAccrual() external {
+    function test_withdraw_multiIlk_valueAccrual() external {
         // Intentionally using same values for both ilks to show differences in interest accrual
         deal(DAI, buffer1, 100 ether);
         deal(DAI, buffer2, 100 ether);
