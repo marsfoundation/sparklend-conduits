@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.13;
 
+import 'dss-test/DssTest.sol';
+
 import { IPool } from 'aave-v3-core/contracts/interfaces/IPool.sol';
 
 import { IERC20 }    from 'erc20-helpers/interfaces/IERC20.sol';
@@ -132,7 +134,10 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         // Constrain the amount that can be withdrawn by the max amount
         amount = _min(maxAmount, maxWithdraw(ilk, asset));
 
-        uint256 withdrawalShares = _convertToShares(asset, amount);
+        // Convert the amount to withdraw to shares
+        // Round up to be conservative but prevent underflow
+        uint256 withdrawalShares
+            = _min(shares[asset][ilk], _convertToWithdrawShares(asset, amount));
 
         // Reduce share accounting by the amount withdrawn
         shares[asset][ilk] -= withdrawalShares;
@@ -292,6 +297,15 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
 
     function _convertToShares(address asset, uint256 amount) internal view returns (uint256) {
         return _rayDiv(amount, IPool(pool).getReserveNormalizedIncome(asset));
+    }
+
+    // Note: This function rounds up to the nearest share to prevent dust in conduit state.
+    function _convertToWithdrawShares(address asset, uint256 amount)
+        internal view returns (uint256)
+    {
+        uint256 normalizedIncome = IPool(pool).getReserveNormalizedIncome(asset);
+
+        return _rayDiv(amount, normalizedIncome) + (amount % normalizedIncome > 0 ? 1 : 0);
     }
 
     function _min(uint256 a, uint256 b) internal pure returns (uint256) {
