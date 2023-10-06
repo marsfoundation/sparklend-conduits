@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.13;
 
-import 'dss-test/DssTest.sol';
-
 import { IPool } from 'aave-v3-core/contracts/interfaces/IPool.sol';
 
 import { IERC20 }    from 'erc20-helpers/interfaces/IERC20.sol';

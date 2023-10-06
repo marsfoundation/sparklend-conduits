@@ -653,8 +653,8 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
         });
 
         assertEq(conduit.shares(address(token), ILK),  0);
-        assertEq(conduit.shares(address(token), ILK2), 8.75 ether - 1 ); // Conservative rounding
-        assertEq(conduit.totalShares(address(token)),  8.75 ether - 1 ); // Conservative rounding
+        assertEq(conduit.shares(address(token), ILK2), 8.75 ether - 1); // Conservative rounding
+        assertEq(conduit.totalShares(address(token)),  8.75 ether - 1); // Conservative rounding
     }
 
     function test_withdraw_multiIlk_decreasingIndex() public {
