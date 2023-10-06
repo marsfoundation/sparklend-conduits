@@ -984,11 +984,11 @@ contract SparkConduitWithdrawAndRequestFundsTests is SparkConduitTestBase {
             totalSupply:       70 ether
         });
 
-        assertEq(conduit.shares(address(token), ILK), 56 ether);
-        assertEq(conduit.totalShares(address(token)), 56 ether);
+        assertEq(conduit.shares(address(token), ILK), 56 ether - 1);  // Conservative rounding
+        assertEq(conduit.totalShares(address(token)), 56 ether - 1);  // Conservative rounding
 
-        assertEq(conduit.requestedShares(address(token), ILK), 56 ether);
-        assertEq(conduit.totalRequestedShares(address(token)), 56 ether);
+        assertEq(conduit.requestedShares(address(token), ILK), 56 ether - 1);  // Conservative rounding
+        assertEq(conduit.totalRequestedShares(address(token)), 56 ether - 1);  // Conservative rounding
     }
 
     function test_withdrawAndRequestFunds_fullLiquidity_partialRequest() public {
@@ -1123,15 +1123,6 @@ contract SparkConduitRequestFundsTests is SparkConduitTestBase {
 
         vm.expectRevert("SparkConduit/non-zero-liquidity");
         conduit.requestFunds(ILK, address(token), 40 ether);
-    }
-
-    // TODO: Boundary condition
-    function test_requestFunds_revert_amountTooLarge() public {
-        conduit.deposit(ILK, address(token), 100 ether);
-        deal(address(token), address(atoken), 0);
-
-        vm.expectRevert("SparkConduit/amount-too-large");
-        conduit.requestFunds(ILK, address(token), 150 ether);
     }
 
     // TODO: Update liquidity index during test

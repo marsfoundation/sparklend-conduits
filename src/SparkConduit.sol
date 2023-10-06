@@ -165,9 +165,8 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     {
         require(getAvailableLiquidity(asset) == 0, "SparkConduit/non-zero-liquidity");
 
-        uint256 sharesToRequest = _convertToShares(asset, amount);
-
-        require(sharesToRequest <= shares[asset][ilk], "SparkConduit/amount-too-large");
+        // Limit remaining requested funds to the amount of shares
+        uint256 sharesToRequest = _min(shares[asset][ilk], _convertToShares(asset, amount));
 
         // Cache previous withdrawal amount for accounting update
         uint256 prevRequestedShares = requestedShares[asset][ilk];
