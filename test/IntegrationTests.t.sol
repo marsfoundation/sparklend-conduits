@@ -410,7 +410,7 @@ contract ConduitDepositIntegrationTests is ConduitIntegrationTestBase {
 
 contract ConduitWithdrawIntegrationTests is ConduitIntegrationTestBase {
 
-    function test_withdraw_singleIlk_insufficientBalanceBoundary() external {
+    function test_withdraw_noBufferRegistered() external {
         deal(DAI, buffer1, 100 ether);
 
         vm.prank(operator1);
