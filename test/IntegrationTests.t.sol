@@ -208,6 +208,44 @@ contract ConduitDepositIntegrationTests is ConduitIntegrationTestBase {
         conduit.deposit(ILK1, DAI, 100 ether);
     }
 
+    function test_deposit_zeroAddressBuffer() external {
+        deal(DAI, buffer1, 100 ether);
+
+        registry.file(ILK1, "buffer", address(0));
+
+        vm.prank(operator1);
+        vm.expectRevert("SparkConduit/no-buffer-registered");
+        conduit.deposit(ILK1, DAI, 100 ether);
+
+        registry.file(ILK1, "buffer", buffer1);
+
+        vm.prank(operator1);
+        conduit.deposit(ILK1, DAI, 100 ether);
+    }
+
+    function test_deposit_ilkNotRegistered() external {
+        bytes32 ILK3 = "ilk3";
+        address operator3 = makeAddr("operator3");
+        address buffer3   = makeAddr("buffer3");
+
+        vm.prank(buffer3);
+        IERC20(DAI).approve(address(conduit), type(uint256).max);
+
+        _setupOperatorRole(ILK3, operator3);
+
+        deal(DAI, buffer3, 100 ether);
+
+        // Same error, but because buffer was never initialized to begin with
+        vm.prank(operator3);
+        vm.expectRevert("SparkConduit/no-buffer-registered");
+        conduit.deposit(ILK3, DAI, 100 ether);
+
+        registry.file(ILK3, "buffer", buffer3);
+
+        vm.prank(operator3);
+        conduit.deposit(ILK3, DAI, 100 ether);
+    }
+
     function test_deposit_singleIlk_valueAccrual() external {
         deal(DAI, buffer1, 100 ether);
 
@@ -371,6 +409,24 @@ contract ConduitDepositIntegrationTests is ConduitIntegrationTestBase {
 }
 
 contract ConduitWithdrawIntegrationTests is ConduitIntegrationTestBase {
+
+    function test_withdraw_singleIlk_insufficientBalanceBoundary() external {
+        deal(DAI, buffer1, 100 ether);
+
+        vm.prank(operator1);
+        conduit.deposit(ILK1, DAI, 100 ether);
+
+        registry.file(ILK1, "buffer", address(0));
+
+        vm.prank(operator1);
+        vm.expectRevert("SparkConduit/no-buffer-registered");
+        conduit.withdraw(ILK1, DAI, 100 ether);
+
+        registry.file(ILK1, "buffer", buffer1);
+
+        vm.prank(operator1);
+        conduit.withdraw(ILK1, DAI, 100 ether);
+    }
 
     function test_withdraw_singleIlk_valueAccrual() external {
         deal(DAI, buffer1, 100 ether);

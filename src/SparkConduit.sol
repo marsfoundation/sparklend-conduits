@@ -114,6 +114,8 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
 
         address source = RegistryLike(registry).buffers(ilk);
 
+        require(source != address(0), "SparkConduit/no-buffer-registered");
+
         // Convert asset amount to shares
         uint256 newShares = _convertToShares(asset, amount);
 
@@ -149,6 +151,8 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         }
 
         address destination = RegistryLike(registry).buffers(ilk);
+
+        require(destination != address(0), "SparkConduit/no-buffer-registered");
 
         IPool(pool).withdraw(asset, amount, destination);
 
