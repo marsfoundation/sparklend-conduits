@@ -442,10 +442,9 @@ contract ConduitWithdrawIntegrationTests is ConduitIntegrationTestBase {
             totalSupply:       expectedSupply - expectedValue + 2
         });
 
-        // TODO: Expect this to change after rounding fix is made, dust shares remaining
         _assertConduitState({
-            ilk1Shares:  1,
-            totalShares: 1
+            ilk1Shares:  0,
+            totalShares: 0
         });
     }
 
@@ -536,9 +535,9 @@ contract ConduitWithdrawIntegrationTests is ConduitIntegrationTestBase {
 
         // TODO: Expect this to change after rounding fix is made, dust shares remaining
         _assertConduitState({
-            ilk1Shares:  1,
+            ilk1Shares:  0,
             ilk2Shares:  expectedIlk2Shares,
-            totalShares: 1 + expectedIlk2Shares
+            totalShares: expectedIlk2Shares
         });
 
         vm.warp(block.timestamp + 1 days);
@@ -574,11 +573,10 @@ contract ConduitWithdrawIntegrationTests is ConduitIntegrationTestBase {
             totalSupply:       expectedSupply - (expectedIlk2Value - 1)  // Does not need to subtract ilk1
         });
 
-        // TODO: Expect this to change after rounding fix is made, dust shares remaining
         _assertConduitState({
-            ilk1Shares:  1,
-            ilk2Shares:  1,
-            totalShares: 1 + 1
+            ilk1Shares:  0,
+            ilk2Shares:  0,
+            totalShares: 0
         });
 
     }
