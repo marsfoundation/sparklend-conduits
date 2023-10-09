@@ -309,9 +309,13 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     function _convertToSharesRoundUp(address asset, uint256 amount)
         internal view returns (uint256)
     {
-        uint256 normalizedIncome = IPool(pool).getReserveNormalizedIncome(asset);
+        return _divUp(amount * 1e27, IPool(pool).getReserveNormalizedIncome(asset));
+    }
 
-        return _rayDiv(amount, normalizedIncome) + (amount % normalizedIncome > 0 ? 1 : 0);
+    function _divUp(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        unchecked {
+            z = x != 0 ? ((x - 1) / y) + 1 : 0;
+        }
     }
 
     function _min(uint256 a, uint256 b) internal pure returns (uint256) {
