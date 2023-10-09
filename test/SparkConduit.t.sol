@@ -300,8 +300,8 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
             totalSupply:       60 ether
         });
 
-        assertEq(conduit.shares(address(token), ILK), 48 ether - 1);  // Conservative rounding
-        assertEq(conduit.totalShares(address(token)), 48 ether - 1);  // Conservative rounding
+        assertEq(conduit.shares(address(token), ILK), 48 ether);
+        assertEq(conduit.totalShares(address(token)), 48 ether);
 
         assertEq(conduit.requestedShares(address(token), ILK), 0);
         assertEq(conduit.totalRequestedShares(address(token)), 0);
@@ -389,9 +389,9 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
             totalSupply:       100 ether
         });
 
-        assertEq(conduit.shares(address(token), ILK),  40 ether - 1);  // Conservative rounding
+        assertEq(conduit.shares(address(token), ILK),  40 ether);
         assertEq(conduit.shares(address(token), ILK2), 40 ether);
-        assertEq(conduit.totalShares(address(token)),  80 ether - 1);  // Conservative rounding
+        assertEq(conduit.totalShares(address(token)),  80 ether);
 
         assertEq(conduit.requestedShares(address(token), ILK),  0);
         assertEq(conduit.requestedShares(address(token), ILK2), 0);
@@ -492,11 +492,11 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
             totalSupply:       75 ether
         });
 
-        assertEq(conduit.shares(address(token), ILK), 60 ether - 1);  // Conservative rounding
-        assertEq(conduit.totalShares(address(token)), 60 ether - 1);  // Conservative rounding
+        assertEq(conduit.shares(address(token), ILK), 60 ether);
+        assertEq(conduit.totalShares(address(token)), 60 ether);
 
-        assertEq(conduit.requestedShares(address(token), ILK), 12 ether - 1);  // Conservative rounding
-        assertEq(conduit.totalRequestedShares(address(token)), 12 ether - 1);  // Conservative rounding
+        assertEq(conduit.requestedShares(address(token), ILK), 12 ether);
+        assertEq(conduit.totalRequestedShares(address(token)), 12 ether);
     }
 
     function test_withdraw_singleIlk_requestFunds_completeFill() public {
@@ -543,8 +543,8 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
             totalSupply:       40 ether
         });
 
-        assertEq(conduit.shares(address(token), ILK), 32 ether - 1);  // Conservative rounding
-        assertEq(conduit.totalShares(address(token)), 32 ether - 1);  // Conservative rounding
+        assertEq(conduit.shares(address(token), ILK), 32 ether);
+        assertEq(conduit.totalShares(address(token)), 32 ether);
 
         assertEq(conduit.requestedShares(address(token), ILK), 0);
         assertEq(conduit.totalRequestedShares(address(token)), 0);
@@ -587,8 +587,8 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
             totalSupply:       60 ether
         });
 
-        assertEq(conduit.shares(address(token), ILK), 48 ether - 1);  // Conservative rounding
-        assertEq(conduit.totalShares(address(token)), 48 ether - 1);  // Conservative rounding
+        assertEq(conduit.shares(address(token), ILK), 48 ether);
+        assertEq(conduit.totalShares(address(token)), 48 ether);
 
         assertEq(conduit.requestedShares(address(token), ILK), 0);
         assertEq(conduit.totalRequestedShares(address(token)), 0);
@@ -659,8 +659,8 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
         });
 
         assertEq(conduit.shares(address(token), ILK),  0);
-        assertEq(conduit.shares(address(token), ILK2), 8.75 ether - 1); // Conservative rounding
-        assertEq(conduit.totalShares(address(token)),  8.75 ether - 1); // Conservative rounding
+        assertEq(conduit.shares(address(token), ILK2), 8.75 ether);
+        assertEq(conduit.totalShares(address(token)),  8.75 ether);
     }
 
     function test_withdraw_multiIlk_decreasingIndex() public {
@@ -833,12 +833,12 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
             totalSupply:       88 ether
         });
 
-        assertEq(conduit.shares(address(token), ILK), 55 ether - 1);  // Conservative rounding
-        assertEq(conduit.totalShares(address(token)), 55 ether - 1);  // Conservative rounding
+        assertEq(conduit.shares(address(token), ILK), 55 ether);
+        assertEq(conduit.totalShares(address(token)), 55 ether);
 
         // 40 ether at 1.6 index = 25 shares, 32 requested - 25 burned = 7 remaining
-        assertEq(conduit.requestedShares(address(token), ILK), 7 ether - 1);  // Conservative rounding
-        assertEq(conduit.totalRequestedShares(address(token)), 7 ether - 1);  // Conservative rounding
+        assertEq(conduit.requestedShares(address(token), ILK), 7 ether);
+        assertEq(conduit.totalRequestedShares(address(token)), 7 ether);
     }
 
 }
@@ -944,8 +944,8 @@ contract SparkConduitWithdrawAndRequestFundsTests is SparkConduitTestBase {
             totalSupply:       70 ether
         });
 
-        assertEq(conduit.shares(address(token), ILK), 56 ether - 1);  // Conservative rounding
-        assertEq(conduit.totalShares(address(token)), 56 ether - 1);  // Conservative rounding
+        assertEq(conduit.shares(address(token), ILK), 56 ether);
+        assertEq(conduit.totalShares(address(token)), 56 ether);
 
         assertEq(conduit.requestedShares(address(token), ILK), 8 ether);
         assertEq(conduit.totalRequestedShares(address(token)), 8 ether);
@@ -975,7 +975,7 @@ contract SparkConduitWithdrawAndRequestFundsTests is SparkConduitTestBase {
         vm.expectEmit();
         emit Withdraw(ILK, address(token), buffer, 30 ether);
         vm.expectEmit();
-        emit RequestFunds(ILK, address(token), 70 ether - 2);  // Rounded down assets from rounded shares
+        emit RequestFunds(ILK, address(token), 70 ether);
         ( uint256 amountWithdrawn, uint256 requestedFunds )
             = conduit.withdrawAndRequestFunds(ILK, address(token), 100 ether);
 
@@ -994,11 +994,11 @@ contract SparkConduitWithdrawAndRequestFundsTests is SparkConduitTestBase {
             totalSupply:       70 ether
         });
 
-        assertEq(conduit.shares(address(token), ILK), 56 ether - 1);  // Conservative rounding
-        assertEq(conduit.totalShares(address(token)), 56 ether - 1);  // Conservative rounding
+        assertEq(conduit.shares(address(token), ILK), 56 ether);
+        assertEq(conduit.totalShares(address(token)), 56 ether);
 
-        assertEq(conduit.requestedShares(address(token), ILK), 56 ether - 1);  // Conservative rounding
-        assertEq(conduit.totalRequestedShares(address(token)), 56 ether - 1);  // Conservative rounding
+        assertEq(conduit.requestedShares(address(token), ILK), 56 ether);
+        assertEq(conduit.totalRequestedShares(address(token)), 56 ether);
     }
 
     function test_withdrawAndRequestFunds_fullLiquidity_partialRequest() public {
@@ -1040,8 +1040,8 @@ contract SparkConduitWithdrawAndRequestFundsTests is SparkConduitTestBase {
             totalSupply:       70 ether
         });
 
-        assertEq(conduit.shares(address(token), ILK), 56 ether - 1); // Conservative rounding
-        assertEq(conduit.totalShares(address(token)), 56 ether - 1); // Conservative rounding
+        assertEq(conduit.shares(address(token), ILK), 56 ether); // Conservative rounding
+        assertEq(conduit.totalShares(address(token)), 56 ether); // Conservative rounding
 
         // No change in requestedShares
         assertEq(conduit.requestedShares(address(token), ILK), 0);
