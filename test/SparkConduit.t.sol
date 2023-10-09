@@ -1208,7 +1208,7 @@ contract SparkConduitRequestFundsTests is SparkConduitTestBase {
     }
 
     // TODO: Update liquidity index during test
-    function test_requestFund_multiIlk() public {
+    function test_requestFunds_multiIlk() public {
         token.mint(buffer, 50 ether);  // For second deposit
 
         conduit.deposit(ILK, address(token),  100 ether);
