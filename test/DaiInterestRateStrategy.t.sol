@@ -49,6 +49,8 @@ contract DaiInterestRateStrategyConstructorTests is DaiInterestRateStrategyTestB
 
 contract DaiInterestRateStrategyRecomputeTests is DaiInterestRateStrategyTestBase {
 
+    event Recompute(uint256 debtRatio, uint256 baseBorrowRate);
+
     function test_recompute() public {
         dataSource.setCurrentDebt(50 * WAD);
         dataSource.setTargetDebt(100 * WAD);
@@ -60,6 +62,8 @@ contract DaiInterestRateStrategyRecomputeTests is DaiInterestRateStrategyTestBas
         assertEq(interestStrategy.getBaseBorrowRate(),      3_80 * RBPS);
         assertEq(interestStrategy.getLastUpdateTimestamp(), block.timestamp - 1 days);
 
+        vm.expectEmit();
+        emit Recompute(WAD / 2, 4_30 * RBPS);
         interestStrategy.recompute();
 
         assertEq(interestStrategy.getDebtRatio(),           WAD / 2);
