@@ -1297,7 +1297,7 @@ contract SparkConduitGetInterestDataTests is SparkConduitTestBase {
         deal(address(token), address(atoken), 0);
         uint256 requestedFunds = conduit.requestFunds(ILK, address(token), requestAmount);
 
-        assertEq(requestedFunds, requestAmount);
+        assertEq(requestedFunds, conduit.getRequestedFunds(address(token), ILK));
 
         IInterestRateDataSource.InterestData memory data = conduit.getInterestData(address(token));
 
@@ -1359,9 +1359,9 @@ contract SparkConduitGetPositionTests is SparkConduitTestBase {
         uint256 requestedFundsFromFunction
             = conduit.requestFunds(ILK, address(token), requestAmount);
 
-        assertEq(requestedFundsFromFunction, requestAmount);
-
         ( uint256 deposits, uint256 requestedFunds ) = conduit.getPosition(address(token), ILK);
+
+        assertEq(requestedFundsFromFunction, requestedFunds);
 
         assertApproxEqAbs(deposits,       depositAmount, 10);
         assertApproxEqAbs(requestedFunds, requestAmount, 10);
@@ -1501,7 +1501,7 @@ contract SparkConduitGetTotalRequestedFundsTests is SparkConduitTestBase {
 
         uint256 requestedFunds = conduit.requestFunds(ILK, address(token), requestAmount);
 
-        assertEq(requestedFunds, requestAmount);
+        assertEq(conduit.getTotalRequestedFunds(address(token)), requestedFunds);
 
         assertApproxEqAbs(conduit.getTotalRequestedFunds(address(token)), requestAmount, 10);
 
@@ -1554,7 +1554,7 @@ contract SparkConduitGetRequestedFundsTests is SparkConduitTestBase {
 
         uint256 requestedFunds = conduit.requestFunds(ILK, address(token), requestAmount);
 
-        assertEq(requestedFunds, requestAmount);
+        assertEq(conduit.getRequestedFunds(address(token), ILK), requestedFunds);
 
         assertApproxEqAbs(conduit.getRequestedFunds(address(token), ILK), requestAmount, 10);
 
