@@ -9,6 +9,8 @@ import { UpgradeableProxy } from 'upgradeable-proxy/UpgradeableProxy.sol';
 
 import { SparkConduit, IInterestRateDataSource } from '../src/SparkConduit.sol';
 
+import { SparkConduitHarness } from './harnesses/SparkConduitHarness.sol';
+
 import { PoolMock, PotMock, RolesMock, RegistryMock } from "./mocks/Mocks.sol";
 
 import { ATokenMock } from "./mocks/ATokenMock.sol";
@@ -59,7 +61,7 @@ contract SparkConduitTestBase is DssTest {
         atoken.setUnderlying(address(token));
 
         UpgradeableProxy proxy = new UpgradeableProxy();
-        SparkConduit     impl  = new SparkConduit(address(pool),address(pot));
+        SparkConduit     impl  = new SparkConduit(address(pool), address(pot));
 
         proxy.setImplementation(address(impl));
 
@@ -263,7 +265,43 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
         conduit.deposit(ILK, address(token), 100 ether);
     }
 
-    // TODO: Add path-based testing once simplified logic is merged
+    // Assert that one wei can't be withdrawn without burning one share
+    function test_withdraw_sharesRounding() public {
+        _assertTokenState({
+            bufferBalance: 0,
+            atokenBalance: 100 ether
+        });
+
+        _assertATokenState({
+            scaledBalance:     80 ether,
+            scaledTotalSupply: 80 ether,
+            balance:           100 ether,
+            totalSupply:       100 ether
+        });
+
+        assertEq(conduit.shares(address(token), ILK), 80 ether);
+        assertEq(conduit.totalShares(address(token)), 80 ether);
+
+        vm.expectEmit();
+        emit Withdraw(ILK, address(token), buffer, 1);
+        assertEq(conduit.withdraw(ILK, address(token), 1), 1);
+
+        _assertTokenState({
+            bufferBalance: 1,
+            atokenBalance: 100 ether - 1
+        });
+
+        // NOTE: Spark state doesn't have rounding logic, just conduit state.
+        _assertATokenState({
+            scaledBalance:     80 ether,
+            scaledTotalSupply: 80 ether,
+            balance:           100 ether,
+            totalSupply:       100 ether
+        });
+
+        assertEq(conduit.shares(address(token), ILK), 80 ether - 1);
+        assertEq(conduit.totalShares(address(token)), 80 ether - 1);
+    }
 
     function test_withdraw_singleIlk_exactPartialWithdraw() public {
         _assertTokenState({
@@ -1653,6 +1691,57 @@ contract SparkConduitAdminSetterTests is SparkConduitTestBase {
         assertEq(conduit.enabled(address(token)), false);
 
         assertEq(token.allowance(address(conduit), address(pool)), 0);
+    }
+
+}
+
+contract SparkConduitHarnessDivUpTests is SparkConduitTestBase {
+
+    SparkConduitHarness conduitHarness;
+
+    function setUp() public override {
+        super.setUp();
+
+        SparkConduitHarness impl = new SparkConduitHarness(address(pool), address(pot));
+
+        UpgradeableProxy(address(conduit)).setImplementation(address(impl));
+
+        conduitHarness = SparkConduitHarness(address(conduit));
+    }
+
+    function test_divUp() public {
+        // Divide by zero
+        vm.expectRevert(stdError.divisionError);
+        conduitHarness.divUp(1, 0);
+
+        // Small numbers
+        assertEq(conduitHarness.divUp(0, 1), 0);
+        assertEq(conduitHarness.divUp(1, 1), 1);
+        assertEq(conduitHarness.divUp(2, 1), 2);
+        assertEq(conduitHarness.divUp(3, 1), 3);
+        assertEq(conduitHarness.divUp(4, 1), 4);
+
+        assertEq(conduitHarness.divUp(0, 2), 0);
+        assertEq(conduitHarness.divUp(1, 2), 1);
+        assertEq(conduitHarness.divUp(2, 2), 1);
+        assertEq(conduitHarness.divUp(3, 2), 2);
+        assertEq(conduitHarness.divUp(4, 2), 2);
+
+        assertEq(conduitHarness.divUp(0, 3), 0);
+        assertEq(conduitHarness.divUp(1, 3), 1);
+        assertEq(conduitHarness.divUp(2, 3), 1);
+        assertEq(conduitHarness.divUp(3, 3), 1);
+        assertEq(conduitHarness.divUp(4, 3), 2);
+        assertEq(conduitHarness.divUp(5, 3), 2);
+        assertEq(conduitHarness.divUp(6, 3), 2);
+
+        // Large numbers
+        assertEq(conduitHarness.divUp(0, 1e27), 0);
+        assertEq(conduitHarness.divUp(1, 1e27), 1);
+
+        assertEq(conduitHarness.divUp(1e27,     1e27 + 1), 1);
+        assertEq(conduitHarness.divUp(1e27 + 1, 1e27 + 1), 1);
+        assertEq(conduitHarness.divUp(1e27 + 1, 1e27),     2);
     }
 
 }
