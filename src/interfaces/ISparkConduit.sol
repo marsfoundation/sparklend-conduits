@@ -133,11 +133,13 @@ interface ISparkConduit is IAllocatorConduit {
     /**
      *  @notice Makes a request for funds.
      *          This will override any previous request with a new `amount`.
-     *  @param  ilk    The ilk from which the funds are requested.
-     *  @param  asset  The asset for which the funds are requested.
-     *  @param  amount The amount of funds requested.
+     *  @param  ilk              The ilk from which the funds are requested.
+     *  @param  asset            The asset for which the funds are requested.
+     *  @param  maxRequestAmount The amount of funds requested.
+     *  @return requestedFunds   The resulting amount of amount of funds requested.
      */
-    function requestFunds(bytes32 ilk, address asset, uint256 amount) external;
+    function requestFunds(bytes32 ilk, address asset, uint256 maxRequestAmount)
+        external returns (uint256 requestedFunds);
 
     /**
      *  @notice Withdraws funds if there is available liquidity, and requests funds if there is a

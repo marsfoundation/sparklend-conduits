@@ -148,7 +148,9 @@ contract SparkConduitDepositTests is SparkConduitTestBase {
     function test_deposit_revert_pendingRequest() public {
         conduit.deposit(ILK, address(token), 100 ether);
         deal(address(token), address(atoken), 0);
-        conduit.requestFunds(ILK, address(token), 40 ether);
+        uint256 requestedFunds = conduit.requestFunds(ILK, address(token), 40 ether);
+
+        assertEq(requestedFunds, 40 ether);
 
         vm.expectRevert("SparkConduit/no-deposit-with-requested-shares");
         conduit.deposit(ILK, address(token), 100 ether);
@@ -449,7 +451,9 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
     function test_withdraw_singleIlk_requestFunds_partialFill() public {
         // Zero out liquidity so request can be made
         deal(address(token), address(atoken), 0);
-        conduit.requestFunds(ILK, address(token), 40 ether);
+        uint256 requestedFunds = conduit.requestFunds(ILK, address(token), 40 ether);
+
+        assertEq(requestedFunds, 40 ether);
 
         // Partially fill withdrawal order
         deal(address(token), address(atoken), 25 ether);
@@ -498,7 +502,9 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
     function test_withdraw_singleIlk_requestFunds_completeFill() public {
         // Zero out liquidity so request can be made
         deal(address(token), address(atoken), 0);
-        conduit.requestFunds(ILK, address(token), 40 ether);
+        uint256 requestedFunds = conduit.requestFunds(ILK, address(token), 40 ether);
+
+        assertEq(requestedFunds, 40 ether);
 
         // Fill full withdrawal order
         deal(address(token), address(atoken), 60 ether);
@@ -728,7 +734,9 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
     function test_withdraw_singleIlk_increasedIndexAfterRequest_completeWithdrawal() public {
         // Zero out liquidity so request can be made
         deal(address(token), address(atoken), 0);
-        conduit.requestFunds(ILK, address(token), 40 ether);
+        uint256 requestedFunds = conduit.requestFunds(ILK, address(token), 40 ether);
+
+        assertEq(requestedFunds, 40 ether);
 
         // Add more than enough liquidity to demonstrate how additional liquidity is handled
         deal(address(token), address(atoken), 200 ether);
@@ -781,7 +789,9 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
     function test_withdraw_singleIlk_increasedIndexAfterRequest_requestedSharesRemaining() public {
         // Zero out liquidity so request can be made
         deal(address(token), address(atoken), 0);
-        conduit.requestFunds(ILK, address(token), 40 ether);
+        uint256 requestedFunds = conduit.requestFunds(ILK, address(token), 40 ether);
+
+        assertEq(requestedFunds, 40 ether);
 
         // Add exact amount
         deal(address(token), address(atoken), 40 ether);
@@ -965,7 +975,7 @@ contract SparkConduitWithdrawAndRequestFundsTests is SparkConduitTestBase {
         vm.expectEmit();
         emit Withdraw(ILK, address(token), buffer, 30 ether);
         vm.expectEmit();
-        emit RequestFunds(ILK, address(token), 70 ether);
+        emit RequestFunds(ILK, address(token), 70 ether - 2);  // Rounded down assets from rounded shares
         ( uint256 amountWithdrawn, uint256 requestedFunds )
             = conduit.withdrawAndRequestFunds(ILK, address(token), 100 ether);
 
@@ -1140,7 +1150,9 @@ contract SparkConduitRequestFundsTests is SparkConduitTestBase {
 
         vm.expectEmit();
         emit RequestFunds(ILK, address(token), 40 ether);
-        conduit.requestFunds(ILK, address(token), 40 ether);
+        uint256 requestedFunds = conduit.requestFunds(ILK, address(token), 40 ether);
+
+        assertEq(requestedFunds, 40 ether);
 
         assertEq(conduit.requestedShares(address(token), ILK),  32 ether);
         assertEq(conduit.requestedShares(address(token), ILK2), 0);
@@ -1149,7 +1161,9 @@ contract SparkConduitRequestFundsTests is SparkConduitTestBase {
         // Subsequent request should replace instead of be additive
         vm.expectEmit();
         emit RequestFunds(ILK, address(token), 20 ether);
-        conduit.requestFunds(ILK, address(token), 20 ether);
+        requestedFunds = conduit.requestFunds(ILK, address(token), 20 ether);
+
+        assertEq(requestedFunds, 20 ether);
 
         assertEq(conduit.requestedShares(address(token), ILK),  16 ether);
         assertEq(conduit.requestedShares(address(token), ILK2), 0);
@@ -1157,7 +1171,9 @@ contract SparkConduitRequestFundsTests is SparkConduitTestBase {
 
         vm.expectEmit();
         emit RequestFunds(ILK2, address(token), 30 ether);
-        conduit.requestFunds(ILK2, address(token), 30 ether);
+        requestedFunds = conduit.requestFunds(ILK2, address(token), 30 ether);
+
+        assertEq(requestedFunds, 30 ether);
 
         assertEq(conduit.requestedShares(address(token), ILK),  16 ether);
         assertEq(conduit.requestedShares(address(token), ILK2), 24 ether);
@@ -1175,7 +1191,9 @@ contract SparkConduitRequestFundsTests is SparkConduitTestBase {
 
         vm.expectEmit();
         emit RequestFunds(ILK, address(token), 40 ether);
-        conduit.requestFunds(ILK, address(token), 40 ether);
+        uint256 requestedFunds = conduit.requestFunds(ILK, address(token), 40 ether);
+
+        assertEq(requestedFunds, 40 ether);
 
         assertEq(conduit.requestedShares(address(token), ILK),  32 ether);
         assertEq(conduit.requestedShares(address(token), ILK2), 0);
@@ -1187,7 +1205,9 @@ contract SparkConduitRequestFundsTests is SparkConduitTestBase {
         // will reduce the amount of shares that will be requested
         vm.expectEmit();
         emit RequestFunds(ILK, address(token), 40 ether);
-        conduit.requestFunds(ILK, address(token), 40 ether);
+        requestedFunds = conduit.requestFunds(ILK, address(token), 40 ether);
+
+        assertEq(requestedFunds, 40 ether);
 
         assertEq(conduit.requestedShares(address(token), ILK),  25 ether);
         assertEq(conduit.requestedShares(address(token), ILK2), 0);
@@ -1214,7 +1234,9 @@ contract SparkConduitCancelFundRequestTests is SparkConduitTestBase {
     function test_cancelFundRequest() public {
         conduit.deposit(ILK, address(token), 100 ether);
         deal(address(token), address(atoken), 0);
-        conduit.requestFunds(ILK, address(token), 40 ether);
+        uint256 requestedFunds = conduit.requestFunds(ILK, address(token), 40 ether);
+
+        assertEq(requestedFunds, 40 ether);
 
         assertEq(conduit.requestedShares(address(token), ILK), 32 ether);
         assertEq(conduit.totalRequestedShares(address(token)), 32 ether);
@@ -1240,7 +1262,9 @@ contract SparkConduitGetInterestDataTests is SparkConduitTestBase {
         token.mint(buffer, 100 ether);
         conduit.deposit(ILK, address(token), 100 ether);
         deal(address(token), address(atoken), 0);
-        conduit.requestFunds(ILK, address(token), 40 ether);
+        uint256 requestedFunds = conduit.requestFunds(ILK, address(token), 40 ether);
+
+        assertEq(requestedFunds, 40 ether);
 
         IInterestRateDataSource.InterestData memory data = conduit.getInterestData(address(token));
 
@@ -1271,7 +1295,9 @@ contract SparkConduitGetInterestDataTests is SparkConduitTestBase {
         token.mint(buffer, depositAmount);
         conduit.deposit(ILK, address(token), depositAmount);
         deal(address(token), address(atoken), 0);
-        conduit.requestFunds(ILK, address(token), requestAmount);
+        uint256 requestedFunds = conduit.requestFunds(ILK, address(token), requestAmount);
+
+        assertEq(requestedFunds, requestAmount);
 
         IInterestRateDataSource.InterestData memory data = conduit.getInterestData(address(token));
 
@@ -1293,7 +1319,9 @@ contract SparkConduitGetPositionTests is SparkConduitTestBase {
 
         deal(address(token), address(atoken), 0);
 
-        conduit.requestFunds(ILK, address(token), 40 ether);
+        uint256 requestedFundsFromFunction = conduit.requestFunds(ILK, address(token), 40 ether);
+
+        assertEq(requestedFundsFromFunction, 40 ether);
 
         ( uint256 deposits, uint256 requestedFunds ) = conduit.getPosition(address(token), ILK);
 
@@ -1328,7 +1356,10 @@ contract SparkConduitGetPositionTests is SparkConduitTestBase {
 
         deal(address(token), address(atoken), 0);
 
-        conduit.requestFunds(ILK, address(token), requestAmount);
+        uint256 requestedFundsFromFunction
+            = conduit.requestFunds(ILK, address(token), requestAmount);
+
+        assertEq(requestedFundsFromFunction, requestAmount);
 
         ( uint256 deposits, uint256 requestedFunds ) = conduit.getPosition(address(token), ILK);
 
@@ -1438,7 +1469,9 @@ contract SparkConduitGetTotalRequestedFundsTests is SparkConduitTestBase {
 
         deal(address(token), address(atoken), 0);
 
-        conduit.requestFunds(ILK, address(token), 100 ether);
+        uint256 requestedFunds = conduit.requestFunds(ILK, address(token), 100 ether);
+
+        assertEq(requestedFunds, 100 ether);
 
         assertEq(conduit.getTotalRequestedFunds(address(token)), 100 ether);
 
@@ -1466,7 +1499,9 @@ contract SparkConduitGetTotalRequestedFundsTests is SparkConduitTestBase {
 
         deal(address(token), address(atoken), 0);
 
-        conduit.requestFunds(ILK, address(token), requestAmount);
+        uint256 requestedFunds = conduit.requestFunds(ILK, address(token), requestAmount);
+
+        assertEq(requestedFunds, requestAmount);
 
         assertApproxEqAbs(conduit.getTotalRequestedFunds(address(token)), requestAmount, 10);
 
@@ -1487,7 +1522,9 @@ contract SparkConduitGetRequestedFundsTests is SparkConduitTestBase {
 
         deal(address(token), address(atoken), 0);
 
-        conduit.requestFunds(ILK, address(token), 100 ether);
+        uint256 requestedFunds = conduit.requestFunds(ILK, address(token), 100 ether);
+
+        assertEq(requestedFunds, 100 ether);
 
         assertEq(conduit.getRequestedFunds(address(token), ILK), 100 ether);
 
@@ -1515,7 +1552,9 @@ contract SparkConduitGetRequestedFundsTests is SparkConduitTestBase {
 
         deal(address(token), address(atoken), 0);
 
-        conduit.requestFunds(ILK, address(token), requestAmount);
+        uint256 requestedFunds = conduit.requestFunds(ILK, address(token), requestAmount);
+
+        assertEq(requestedFunds, requestAmount);
 
         assertApproxEqAbs(conduit.getRequestedFunds(address(token), ILK), requestAmount, 10);
 

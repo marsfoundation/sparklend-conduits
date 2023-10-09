@@ -137,7 +137,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         // Convert the amount to withdraw to shares
         // Round up to be conservative but prevent underflow
         uint256 withdrawalShares
-            = _min(shares[asset][ilk], _convertToWithdrawShares(asset, amount));
+            = _min(shares[asset][ilk], _convertToSharesRoundUp(asset, amount));
 
         // Reduce share accounting by the amount withdrawn
         shares[asset][ilk] -= withdrawalShares;
@@ -162,13 +162,16 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         emit Withdraw(ilk, asset, destination, amount);
     }
 
-    function requestFunds(bytes32 ilk, address asset, uint256 amount)
-        public override ilkAuth(ilk)
+    function requestFunds(bytes32 ilk, address asset, uint256 maxRequestAmount)
+        public override ilkAuth(ilk) returns (uint256 requestedFunds)
     {
         require(getAvailableLiquidity(asset) == 0, "SparkConduit/non-zero-liquidity");
 
-        // Limit remaining requested funds to the amount of shares
-        uint256 sharesToRequest = _min(shares[asset][ilk], _convertToShares(asset, amount));
+        // Limit remaining requested funds to the amount of shares the user has
+        uint256 sharesToRequest = _min(
+            shares[asset][ilk],
+            _convertToShares(asset, maxRequestAmount)
+        );
 
         // Cache previous withdrawal amount for accounting update
         uint256 prevRequestedShares = requestedShares[asset][ilk];
@@ -178,23 +181,25 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         totalRequestedShares[asset]
             = totalRequestedShares[asset] + sharesToRequest - prevRequestedShares;
 
-        emit RequestFunds(ilk, asset, amount);
+        requestedFunds = _convertToAssets(asset, sharesToRequest);
+
+        emit RequestFunds(ilk, asset, requestedFunds);
     }
 
-    function withdrawAndRequestFunds(bytes32 ilk, address asset, uint256 requestAmount)
+    function withdrawAndRequestFunds(bytes32 ilk, address asset, uint256 maxWithdrawAmount)
         external override ilkAuth(ilk) returns (uint256 amountWithdrawn, uint256 requestedFunds)
     {
         uint256 availableLiquidity = getAvailableLiquidity(asset);
 
         // If there is liquidity available, withdraw it before requesting.
         if (availableLiquidity != 0) {
-            uint256 amountToWithdraw = _min(availableLiquidity, requestAmount);
+            uint256 amountToWithdraw = _min(availableLiquidity, maxWithdrawAmount);
             amountWithdrawn = withdraw(ilk, asset, amountToWithdraw);
         }
 
-        // If the withdrawal didn't satisfy the full amount, request the remainder.
-        if (requestAmount > amountWithdrawn) {
-            unchecked { requestedFunds = requestAmount - amountWithdrawn; }
+        // If the withdrawal didn't satisfy the full desired amount, request the remainder.
+        if (maxWithdrawAmount > amountWithdrawn) {
+            unchecked { requestedFunds = maxWithdrawAmount - amountWithdrawn; }
             requestFunds(ilk, asset, requestedFunds);
         }
     }
@@ -301,7 +306,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     }
 
     // Note: This function rounds up to the nearest share to prevent dust in conduit state.
-    function _convertToWithdrawShares(address asset, uint256 amount)
+    function _convertToSharesRoundUp(address asset, uint256 amount)
         internal view returns (uint256)
     {
         uint256 normalizedIncome = IPool(pool).getReserveNormalizedIncome(asset);

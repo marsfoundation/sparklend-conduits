@@ -589,7 +589,6 @@ contract ConduitWithdrawIntegrationTests is ConduitIntegrationTestBase {
             totalSupply:       expectedSupply - expectedIlk1Value + 1
         });
 
-        // TODO: Expect this to change after rounding fix is made, dust shares remaining
         _assertConduitState({
             ilk1Shares:  0,
             ilk2Shares:  expectedIlk2Shares,
