@@ -250,7 +250,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
         external view override returns (
             bool _enabled,
             uint256 _totalDeposits,
-            uint256 _totalWithdrawals
+            uint256 _totalRequestedFunds
         )
     {
         uint256 liquidityIndex = IPool(pool).getReserveNormalizedIncome(asset);
@@ -262,7 +262,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit, IInterestRateDataSou
     }
 
     function getPosition(address asset, bytes32 ilk)
-        external view override returns (uint256 _deposits, uint256 _requestedShares)
+        external view override returns (uint256 _deposits, uint256 _requestedFunds)
     {
         uint256 liquidityIndex = IPool(pool).getReserveNormalizedIncome(asset);
         return (
