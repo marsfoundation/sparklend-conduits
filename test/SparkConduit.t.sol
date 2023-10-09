@@ -1196,7 +1196,7 @@ contract SparkConduitRequestFundsTests is SparkConduitTestBase {
 
         vm.revertTo(snapshot);
 
-        // Perform a second larger request to demonstrate its not from rounding
+        // Perform a second larger request from same state to demonstrate its not from rounding
         vm.expectEmit();
         emit RequestFunds(ILK, address(token), 100 ether);
         requestedFunds = conduit.requestFunds(ILK, address(token), 200 ether);
