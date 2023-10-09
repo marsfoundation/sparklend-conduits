@@ -1173,6 +1173,40 @@ contract SparkConduitRequestFundsTests is SparkConduitTestBase {
         conduit.requestFunds(ILK, address(token), 40 ether);
     }
 
+    function test_requestFunds_requestMoreThanPosition() public {
+        conduit.deposit(ILK, address(token), 100 ether);
+
+        deal(address(token), address(atoken), 0);
+
+        assertEq(conduit.getDeposits(address(token), ILK), 100 ether);
+
+        assertEq(conduit.requestedShares(address(token), ILK), 0);
+        assertEq(conduit.totalRequestedShares(address(token)), 0);
+
+        uint256 snapshot = vm.snapshot();
+
+        vm.expectEmit();
+        emit RequestFunds(ILK, address(token), 100 ether);
+        uint256 requestedFunds = conduit.requestFunds(ILK, address(token), 100 ether + 1);
+
+        assertEq(requestedFunds, 100 ether);
+
+        assertEq(conduit.requestedShares(address(token), ILK), 80 ether);
+        assertEq(conduit.totalRequestedShares(address(token)), 80 ether);
+
+        vm.revertTo(snapshot);
+
+        // Perform a second larger request to demonstrate its not from rounding
+        vm.expectEmit();
+        emit RequestFunds(ILK, address(token), 100 ether);
+        requestedFunds = conduit.requestFunds(ILK, address(token), 200 ether);
+
+        assertEq(requestedFunds, 100 ether);
+
+        assertEq(conduit.requestedShares(address(token), ILK), 80 ether);
+        assertEq(conduit.totalRequestedShares(address(token)), 80 ether);
+    }
+
     // TODO: Update liquidity index during test
     function test_requestFund_multiIlk() public {
         token.mint(buffer, 50 ether);  // For second deposit
