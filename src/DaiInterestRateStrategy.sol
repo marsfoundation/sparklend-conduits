@@ -98,6 +98,8 @@ contract DaiInterestRateStrategy is IReserveInterestRateStrategy {
 
     Slot0 private _slot0;
 
+    event Recompute(uint256 debtRatio, uint256 baseBorrowRate);
+
     /**
      *  @param _asset      The asset this strategy is for
      *  @param _dataSource Interest rate data source
@@ -137,6 +139,7 @@ contract DaiInterestRateStrategy is IReserveInterestRateStrategy {
                 subsidyRate = maxRate - spread;
             }
         }
+        uint256 baseBorrowRate = subsidyRate + spread;
 
         uint256 debtRatio;
         if (data.currentDebt > 0) {
@@ -154,9 +157,11 @@ contract DaiInterestRateStrategy is IReserveInterestRateStrategy {
 
         _slot0 = Slot0({
             debtRatio:           uint88(debtRatio),
-            baseBorrowRate:      uint128(subsidyRate + spread),
+            baseBorrowRate:      uint128(baseBorrowRate),
             lastUpdateTimestamp: uint40(block.timestamp)
         });
+
+        emit Recompute(debtRatio, baseBorrowRate);
     }
 
     /// @inheritdoc IReserveInterestRateStrategy
