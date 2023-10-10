@@ -92,7 +92,7 @@ contract ConduitIntegrationTestBase is DssTest {
         interestStrategy = new DaiInterestRateStrategy({
             _asset:      DAI,
             _dataSource: conduit,
-            _spread:     SPARK_SPREAD,
+            _spread:     0,  // TODO: Update this in a separate PR to be non-zero for all testing
             _maxRate:    MAX_RATE
         });
 
@@ -117,6 +117,8 @@ contract ConduitIntegrationTestBase is DssTest {
 
         conduit.setAssetEnabled(DAI, true);
         conduit.setSubsidySpread(SUBSIDY_SPREAD);
+
+        vm.warp(START);
     }
 
     function test_assertInitialState() external {
@@ -677,6 +679,21 @@ contract ConduitWithdrawIntegrationTests is ConduitIntegrationTestBase {
 contract ConduitRequestFundsIntegrationTests is ConduitIntegrationTestBase {
 
     address borrower = makeAddr("borrower");
+
+    function setUp() public override {
+        super.setUp();
+
+        // TODO: Remove this once spread is incorporated in all testing
+        interestStrategy = new DaiInterestRateStrategy({
+            _asset:      DAI,
+            _dataSource: conduit,
+            _spread:     SPARK_SPREAD,
+            _maxRate:    MAX_RATE
+        });
+
+        vm.prank(POOL_CONFIGURATOR);
+        pool.setReserveInterestRateStrategyAddress(DAI, address(interestStrategy));
+    }
 
     function _depositSupplyAndBorrowAllFunds(
         address operator,
