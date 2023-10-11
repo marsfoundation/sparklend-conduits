@@ -9,10 +9,9 @@
 
 ## Overview
 
-The Spark Conduit is a conduit contract designed to be used within the Maker Allocation System. It implements the IAllocatorConduit interface, so it will be able to work within the constraints on the Allocation System design. There are two contracts in this repo:
+The Spark Conduit is a conduit contract designed to be used within the Maker Allocation System. It implements the IAllocatorConduit interface, so it will be able to work within the constraints on the Allocation System design. There is one contracts in this repo:
 
 1. `SparkConduit`: Facilitates the movement of funds between the Maker Allocation System and the SparkLend protocol.
-2. `DaiInterestRateStrategy`: Calculates the interest rate that is to be paid by all borrowers of DAI through the SparkLend protocol.
 
 In later iterations of this code's development, it is expected for other Spark Conduits to be developed to support multichain deployments.
 
@@ -25,7 +24,6 @@ In later iterations of this code's development, it is expected for other Spark C
 
 1. `roles`: The roles contract to perform operator authentication.
 2. `registry`: Returns the `buffer` contract for a given ilk (source of funds).
-3. `subsidySpread`: The delta between the Base Rate and the Subsidy Rate. [RAY]
 
 ## Functionality
 
@@ -52,33 +50,11 @@ The `withdraw` function is used to `withdraw` funds from the SparkLend Pool into
   <img src="https://github.com/marsfoundation/spark-conduits/assets/44272939/a55a7a74-1cc3-41ad-9f39-94f30a7a7ab5" height="500" />
 </p>
 
-### `requestFunds`
-The `requestFunds` function is used to signal that a given `ilk` would like to withdraw funds from the Conduit. This is only possible when there is zero liquidity in SparkLend for the desired asset.
-
-The result is that:
-- The Conduit state to track the `ilk`'s requested funds in the Conduit is increased. Importantly, `totalRequestedShares[asset]` is increased.
-
-When `recompute()` is called in DaiInterestRateStrategy, it calls `getInterestData` on the SparkConduit. The `targetDebt` that is returned will be lower because it is `totalShares - totalRequestedShares`. This means that the `debtRatio` that is saved to storage will be greater than one, which means that the conditional logic to raise the interest rates (outlined in the `DaiInterestRateStrategy` section) is put into effect.
-
-`totalRequestedShares` only reduces when an `ilk` either:
-1. Cancels a withdrawal request.
-2. Withdraws funds from the Conduit.
-
-### `cancelRequest`
-The `cancelRequest` function is used to signal that a given `ilk` would like to cancel a request to withdraw funds from the Conduit. This is only possible when there is an active request to withdraw funds from the Conduit.
-
-The result is that:
-- The Conduit state to track the `ilk`'s requested funds in the Conduit is decreased. Importantly, `totalRequestedShares[asset]` is decreased.
-
 ## Invariants
 
 $$ totalShares[asset] = \sum_{n=0}^{numIlks}{shares[asset][ilk]} $$
 
-$$ totalRequestedShares[asset] = \sum_{n=0}^{numIlks}{requestedShares[asset][ilk]} $$
-
 $$ getTotalDeposits(asset) = \sum_{n=0}^{numIlks}{getDeposits(asset, ilk)} $$
-
-$$ getTotalRequestedFunds(asset) = \sum_{n=0}^{numIlks}{getRequestedFunds(asset, ilk)} $$
 
 $$ totalRequestedShares[asset] = \sum_{n=0}^{numIlks}{requestedShares[asset][ilk]} $$
 
@@ -92,49 +68,14 @@ $$ getTotalDeposits(asset) \le aToken.balanceOf(conduit) $$
 
 Since the Spark Conduit will likely require maintenance as its desired usage evolves, it will be an upgradeable contract, using [`upgradeable-proxy`](https://github.com/marsfoundation/upgradeable-proxy) for upgradeable logic. This is a non-transparent proxy contract that gives upgrade rights to the PauseProxy.
 
-## `DaiInterestRateStrategy`
-
-The `DaiInterestRateStrategy` contract is used to calculate the interest rate that is to be paid by all borrowers of DAI through the SparkLend protocol. It implements the `IInterestRateStrategy` interface, which is standard in SparkLend for all interest strategies. It is an auxiliary contract to SparkConduit that allows SubDAOs to influence interest rates if they require liquidity and it is not available.
-
-To clarify interest rate-related naming in the contracts:
-- `subsidyRate` (SparkConduit): Annualized `dsr` from Maker Core
-- `subsidySpread` (SparkConduit): Spread set by Maker to make lending to decentralized collateral protocols advantageous. Borrow rate for DAI for the subDAOs.
-- `baseRate` (SparkConduit): Base rate that is used for borrowing by all subDAOs.
-- `spread` (DaiInterestRateStrategy): Spread above the `subsidyRate` that borrowers pay and SubDAOs earn.
-
-The `DaiInterestRateStrategy` implements two important functions:
-
-### `calculateInterestRates()`
-This function is called by SparkLend.
-The important distinction between this contract and the standard implementation is that there are two paths to determine interest:
-
-#### `debtRatio == 1`
-When `debtRatio == 1`, the interest rate used to charge to DAI borrowers is the `baseRate`. This value is determined by Maker core governance.
-#### `debtRatio > 1`
-When `debtRatio > 1`, the interest rate is dynamically calculated based on the following function:
-
-$$ borrowRate = maxRate - \frac{maxRate - baseRate}{\frac{currentDebt}{targetDebt}} $$
-
-Below is an illustrative example of the above formula, with the following configuration:
-1. `maxRate = 75%`
-2. `baseRate = 5%`
-3. `currentDebt = 100`
-
-Each of the lines demonstrates a different scenario, where the amount of requested funds (and therefore the `targetDebt` is different). In the functions below, `r` is defined as the resulting interest rate, and `a` as the amount that has been returned after the original change in the target debt. The domains of each of these functions are limited from `debtRatio > 1`. It can be seen that the minimum rate returns back to the `baseBorrowRate` in all scenarios once all the requested liquidity has been repaid.
-
-<img width="1240" alt="Screenshot 2023-09-12 at 3 51 21 PM" src="https://github.com/marsfoundation/spark-conduits/assets/44272939/b383163d-c8ab-40dc-89ce-41464a7e4cc6">
-
-It is important to note that Maker will penalize SubDAOs that do not perform withdrawals after the funds are returned by users. This is to prevent gamification occurring where SubDAOs can profit by artificially requesting funds to spike interest rates. This results in a very bad UX for SparkLend borrowers, so it is the intention that this functionality be used very rarely, and when it is done that the SubDAOs are financially incentivized to withdraw the returned liquidity immediately.
-
 ## Technical Assumptions
 
-1. As with most MakerDAO contracts, non standard token implementations are assumed to not be supported. As examples, this includes tokens that:
+As with most MakerDAO contracts, non standard token implementations are assumed to not be supported. As examples, this includes tokens that:
    - Do not have a decimals field or have more than 18 decimals.
    - Do not revert and instead rely on a return value.
    - Implement fee on transfer.
    - Include rebasing logic.
    - Implement callbacks/hooks.
-2. The penalization from Maker for not withdrawing funds after a fund request is sufficient to prevent gamification of the interest rate strategy.
 
 ## Testing
 
