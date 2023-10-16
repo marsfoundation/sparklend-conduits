@@ -9,7 +9,7 @@
 
 ## Overview
 
-The Spark Conduit is a conduit contract designed to be used within the Maker Allocation System. It implements the IAllocatorConduit interface, so it will be able to work within the constraints on the Allocation System design. There is one contracts in this repo:
+The Spark Conduit is a conduit contract designed to be used within the Maker Allocation System. It implements the IAllocatorConduit interface, so it will be able to work within the constraints on the Allocation System design. There is one contract in this repo:
 
 `SparkConduit`: Facilitates the movement of funds between the Maker Allocation System and the SparkLend protocol.
 
@@ -70,13 +70,12 @@ Since the Spark Conduit will likely require maintenance as its desired usage evo
 
 ## Technical Assumptions
 
-1. As with most MakerDAO contracts, non standard token implementations are assumed to not be supported. As examples, this includes tokens that:
+As with most MakerDAO contracts, non standard token implementations are assumed to not be supported. As examples, this includes tokens that:
    - Do not have a decimals field or have more than 18 decimals.
    - Do not revert and instead rely on a return value.
    - Implement fee on transfer.
    - Include rebasing logic.
    - Implement callbacks/hooks.
-2. It is assumed that the only token to be supported is the interest-bearing savings version of DAI under the new brand codenamed sNST.
 
 ## Testing
 
