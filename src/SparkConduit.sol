@@ -8,7 +8,7 @@ import { SafeERC20 } from 'erc20-helpers/SafeERC20.sol';
 
 import { UpgradeableProxied } from 'upgradeable-proxy/UpgradeableProxied.sol';
 
-import { ISparkConduit }           from './interfaces/ISparkConduit.sol';
+import { ISparkConduit } from './interfaces/ISparkConduit.sol';
 
 interface PotLike {
     function dsr() external view returns (uint256);
