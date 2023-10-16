@@ -13,14 +13,13 @@ import { IERC20 } from "erc20-helpers/interfaces/IERC20.sol";
 
 import { UpgradeableProxy } from "upgradeable-proxy/UpgradeableProxy.sol";
 
-import { SparkConduit, IInterestRateDataSource } from 'src/SparkConduit.sol';
+import { SparkConduit } from 'src/SparkConduit.sol';
 
 contract ConduitIntegrationTestBase is DssTest {
 
     address DAI  = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
     address ADAI = 0x4DEDf26112B3Ec8eC46e7E31EA5e123490B05B8B;
     address POOL = 0xC13e21B648A5Ee794902342038FF3aDAB66BE987;
-    address POT  = 0x197E90f9FAD81970bA7976f33CbD77088E5D7cf7;
 
     address admin     = makeAddr("admin");
     address buffer1   = makeAddr("buffer1");
@@ -55,7 +54,7 @@ contract ConduitIntegrationTestBase is DssTest {
         INDEX              = 1.006574692939479711169088718e27;
 
         UpgradeableProxy proxy = new UpgradeableProxy();
-        SparkConduit     impl  = new SparkConduit(POOL, POT);
+        SparkConduit     impl  = new SparkConduit(POOL);
 
         proxy.setImplementation(address(impl));
 
@@ -102,8 +101,6 @@ contract ConduitIntegrationTestBase is DssTest {
 
         roles.setRoleAction(ilk_, ROLE, conduit_, conduit.deposit.selector,           true);
         roles.setRoleAction(ilk_, ROLE, conduit_, conduit.withdraw.selector,          true);
-        roles.setRoleAction(ilk_, ROLE, conduit_, conduit.requestFunds.selector,      true);
-        roles.setRoleAction(ilk_, ROLE, conduit_, conduit.cancelFundRequest.selector, true);
     }
 
     function _assertInvariants() internal {
@@ -113,40 +110,26 @@ contract ConduitIntegrationTestBase is DssTest {
             "Invariant A"
         );
 
-        assertEq(
-            conduit.totalRequestedShares(DAI),
-            conduit.requestedShares(DAI, ILK1) + conduit.requestedShares(DAI, ILK2),
-            "Invariant B"
-        );
-
         // NOTE: 1 error because 2 ilks, rounding error scales with number of ilks
         assertApproxEqAbs(
             conduit.getTotalDeposits(DAI),
             conduit.getDeposits(DAI, ILK1) + conduit.getDeposits(DAI, ILK2),
             1,
-            "Invariant C"
-        );
-
-        // NOTE: 1 error because 2 ilks, rounding error scales with number of ilks
-        assertApproxEqAbs(
-            conduit.getTotalRequestedFunds(DAI),
-            conduit.getRequestedFunds(DAI, ILK1) + conduit.getRequestedFunds(DAI, ILK2),
-            1,
-            "Invariant D"
+            "Invariant B"
         );
 
         assertApproxEqAbs(
             conduit.totalShares(DAI),
             aToken.scaledBalanceOf(address(conduit)),
             2,
-            "Invariant E"
+            "Invariant C"
         );
 
         assertApproxEqAbs(
             conduit.getTotalDeposits(DAI),
             aToken.balanceOf(address(conduit)),
             2,
-            "Invariant F"
+            "Invariant D"
         );
     }
 

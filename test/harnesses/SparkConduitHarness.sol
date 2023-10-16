@@ -4,7 +4,7 @@ pragma solidity ^0.8.13;
 import { SparkConduit } from "src/SparkConduit.sol";
 
 contract SparkConduitHarness is SparkConduit {
-    constructor(address _pool, address _pot) SparkConduit(_pool, _pot) {}
+    constructor(address _pool) SparkConduit(_pool) {}
 
     function divUp(uint256 x, uint256 y) external pure returns (uint256) {
         return _divUp(x, y);
