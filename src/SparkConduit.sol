@@ -113,7 +113,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit {
     }
 
     function withdraw(bytes32 ilk, address asset, uint256 maxAmount)
-        public override ilkAuth(ilk) returns (uint256 amount)
+        external override ilkAuth(ilk) returns (uint256 amount)
     {
         // Constrain the amount that can be withdrawn by the max amount
         amount = _min(maxAmount, maxWithdraw(ilk, asset));
