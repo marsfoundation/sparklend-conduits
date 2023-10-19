@@ -182,6 +182,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit {
         return _divUp(amount * 1e27, IPool(pool).getReserveNormalizedIncome(asset));
     }
 
+    // Please note this function returns 0 instead of reverting when x and y are 0
     function _divUp(uint256 x, uint256 y) internal pure returns (uint256 z) {
         unchecked {
             z = x != 0 ? ((x - 1) / y) + 1 : 0;
