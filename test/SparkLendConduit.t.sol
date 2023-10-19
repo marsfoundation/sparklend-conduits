@@ -7,9 +7,9 @@ import { MockERC20 } from 'erc20-helpers/MockERC20.sol';
 
 import { UpgradeableProxy } from 'upgradeable-proxy/UpgradeableProxy.sol';
 
-import { SparkConduit } from '../src/SparkConduit.sol';
+import { SparkLendConduit } from '../src/SparkLendConduit.sol';
 
-import { SparkConduitHarness } from './harnesses/SparkConduitHarness.sol';
+import { SparkLendConduitHarness } from './harnesses/SparkLendConduitHarness.sol';
 
 import { PoolMock, RolesMock, RegistryMock } from "./mocks/Mocks.sol";
 
@@ -17,7 +17,7 @@ import { ATokenMock } from "./mocks/ATokenMock.sol";
 
 // TODO: Add multiple buffers when multi ilk is used
 
-contract SparkConduitTestBase is DssTest {
+contract SparkLendConduitTestBase is DssTest {
 
     uint256 constant RBPS             = RAY / 10_000;
     uint256 constant WBPS             = WAD / 10_000;
@@ -34,7 +34,7 @@ contract SparkConduitTestBase is DssTest {
     MockERC20    token;
     ATokenMock   atoken;
 
-    SparkConduit conduit;
+    SparkLendConduit conduit;
 
     event Deposit(bytes32 indexed ilk, address indexed asset, address origin, uint256 amount);
     event Withdraw(bytes32 indexed ilk, address indexed asset, address destination, uint256 amount);
@@ -56,11 +56,11 @@ contract SparkConduitTestBase is DssTest {
         atoken.setUnderlying(address(token));
 
         UpgradeableProxy proxy = new UpgradeableProxy();
-        SparkConduit     impl  = new SparkConduit(address(pool));
+        SparkLendConduit impl  = new SparkLendConduit(address(pool));
 
         proxy.setImplementation(address(impl));
 
-        conduit = SparkConduit(address(proxy));
+        conduit = SparkLendConduit(address(proxy));
 
         conduit.setRoles(address(roles));
         conduit.setRegistry(address(registry));
@@ -93,7 +93,7 @@ contract SparkConduitTestBase is DssTest {
 
 }
 
-contract SparkConduitConstructorTests is SparkConduitTestBase {
+contract SparkLendConduitConstructorTests is SparkLendConduitTestBase {
 
     function test_constructor() public {
         assertEq(conduit.pool(),               address(pool));
@@ -102,30 +102,30 @@ contract SparkConduitConstructorTests is SparkConduitTestBase {
 
 }
 
-contract SparkConduitModifierTests is SparkConduitTestBase {
+contract SparkLendConduitModifierTests is SparkLendConduitTestBase {
 
     function test_authModifiers() public {
         UpgradeableProxy(address(conduit)).deny(address(this));
 
-        checkModifier(address(conduit), "SparkConduit/not-authorized", [
-            SparkConduit.setRoles.selector,
-            SparkConduit.setRegistry.selector,
-            SparkConduit.setAssetEnabled.selector
+        checkModifier(address(conduit), "SparkLendConduit/not-authorized", [
+            SparkLendConduit.setRoles.selector,
+            SparkLendConduit.setRegistry.selector,
+            SparkLendConduit.setAssetEnabled.selector
         ]);
     }
 
     function test_ilkAuthModifiers() public {
         roles.setCanCall(false);
 
-        checkModifier(address(conduit), "SparkConduit/ilk-not-authorized", [
-            SparkConduit.deposit.selector,
-            SparkConduit.withdraw.selector
+        checkModifier(address(conduit), "SparkLendConduit/ilk-not-authorized", [
+            SparkLendConduit.deposit.selector,
+            SparkLendConduit.withdraw.selector
         ]);
     }
 
 }
 
-contract SparkConduitDepositTests is SparkConduitTestBase {
+contract SparkLendConduitDepositTests is SparkLendConduitTestBase {
 
     function setUp() public override {
         super.setUp();
@@ -134,7 +134,7 @@ contract SparkConduitDepositTests is SparkConduitTestBase {
 
     function test_deposit_revert_notEnabled() public {
         conduit.setAssetEnabled(address(token), false);
-        vm.expectRevert("SparkConduit/asset-disabled");
+        vm.expectRevert("SparkLendConduit/asset-disabled");
         conduit.deposit(ILK, address(token), 100 ether);
     }
 
@@ -236,7 +236,7 @@ contract SparkConduitDepositTests is SparkConduitTestBase {
 
 }
 
-contract SparkConduitWithdrawTests is SparkConduitTestBase {
+contract SparkLendConduitWithdrawTests is SparkLendConduitTestBase {
 
     function setUp() public override {
         super.setUp();
@@ -271,7 +271,7 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
             atokenBalance: 100 ether - 1
         });
 
-        // NOTE: Spark state doesn't have rounding logic, just conduit state.
+        // NOTE: SparkLend state doesn't have rounding logic, just conduit state.
         _assertATokenState({
             scaledBalance:     80 ether,
             scaledTotalSupply: 80 ether,
@@ -609,7 +609,7 @@ contract SparkConduitWithdrawTests is SparkConduitTestBase {
 
 }
 
-contract SparkConduitMaxViewFunctionTests is SparkConduitTestBase {
+contract SparkLendConduitMaxViewFunctionTests is SparkLendConduitTestBase {
 
     function test_maxDeposit() public {
         assertEq(conduit.maxDeposit(ILK, address(token)), type(uint256).max);
@@ -634,7 +634,7 @@ contract SparkConduitMaxViewFunctionTests is SparkConduitTestBase {
 
 }
 
-contract SparkConduitGetTotalDepositsTests is SparkConduitTestBase {
+contract SparkLendConduitGetTotalDepositsTests is SparkLendConduitTestBase {
 
     function test_getTotalDeposits() external {
         token.mint(buffer, 100 ether);
@@ -675,7 +675,7 @@ contract SparkConduitGetTotalDepositsTests is SparkConduitTestBase {
 
 }
 
-contract SparkConduitGetDepositsTests is SparkConduitTestBase {
+contract SparkLendConduitGetDepositsTests is SparkLendConduitTestBase {
 
     function test_getDeposits() external {
         token.mint(buffer, 100 ether);
@@ -716,7 +716,7 @@ contract SparkConduitGetDepositsTests is SparkConduitTestBase {
 
 }
 
-contract SparkConduitGetAvailableLiquidityTests is SparkConduitTestBase {
+contract SparkLendConduitGetAvailableLiquidityTests is SparkLendConduitTestBase {
 
     function test_getAvailableLiquidity() external {
         assertEq(conduit.getAvailableLiquidity(address(token)), 0);
@@ -736,7 +736,7 @@ contract SparkConduitGetAvailableLiquidityTests is SparkConduitTestBase {
 
 }
 
-contract SparkConduitAdminSetterTests is SparkConduitTestBase {
+contract SparkLendConduitAdminSetterTests is SparkLendConduitTestBase {
 
     address SET_ADDRESS = makeAddr("set-address");
 
@@ -787,18 +787,18 @@ contract SparkConduitAdminSetterTests is SparkConduitTestBase {
 
 }
 
-contract SparkConduitHarnessDivUpTests is SparkConduitTestBase {
+contract SparkLendConduitHarnessDivUpTests is SparkLendConduitTestBase {
 
-    SparkConduitHarness conduitHarness;
+    SparkLendConduitHarness conduitHarness;
 
     function setUp() public override {
         super.setUp();
 
-        SparkConduitHarness impl = new SparkConduitHarness(address(pool));
+        SparkLendConduitHarness impl = new SparkLendConduitHarness(address(pool));
 
         UpgradeableProxy(address(conduit)).setImplementation(address(impl));
 
-        conduitHarness = SparkConduitHarness(address(conduit));
+        conduitHarness = SparkLendConduitHarness(address(conduit));
     }
 
     function test_divUp() public {
