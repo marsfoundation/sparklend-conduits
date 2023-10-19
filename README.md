@@ -62,7 +62,7 @@ $$ totalShares[asset] \le aToken.scaledBalanceOf(conduit) $$
 
 $$ getTotalDeposits(asset) \le aToken.balanceOf(conduit) $$
 
-**NOTE**: The last two invariants are not strict equalities because of the potential for a permissionless transfer of the aToken into the conduit. For this reason alone, they are expressed as inequalities.
+**NOTE**: The last two invariants are not strict equalities because of A) the potential for a permissionless transfer of the aToken into the conduit and/or B) the rounding behaviour difference (round on Spark vs round-down on Spark Conduit).
 
 ## Upgradeability
 
