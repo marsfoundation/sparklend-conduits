@@ -10,10 +10,6 @@ import { UpgradeableProxied } from 'upgradeable-proxy/UpgradeableProxied.sol';
 
 import { ISparkConduit } from './interfaces/ISparkConduit.sol';
 
-interface PotLike {
-    function dsr() external view returns (uint256);
-}
-
 interface RolesLike {
     function canCall(bytes32, address, address, bytes4) external view returns (bool);
 }
