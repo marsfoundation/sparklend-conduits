@@ -7,7 +7,7 @@ import { DataTypes } from 'aave-v3-core/contracts/protocol/libraries/types/DataT
 
 import { MockERC20 } from 'erc20-helpers/MockERC20.sol';
 
-import { SparkConduit, IERC20 } from 'src/SparkConduit.sol';
+import { SparkLendConduit, IERC20 } from 'src/SparkLendConduit.sol';
 
 import { ATokenMock } from "./ATokenMock.sol";
 

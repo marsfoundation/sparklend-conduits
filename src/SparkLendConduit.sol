@@ -8,7 +8,7 @@ import { SafeERC20 } from 'erc20-helpers/SafeERC20.sol';
 
 import { UpgradeableProxied } from 'upgradeable-proxy/UpgradeableProxied.sol';
 
-import { ISparkConduit } from './interfaces/ISparkConduit.sol';
+import { ISparkLendConduit } from './interfaces/ISparkLendConduit.sol';
 
 interface RolesLike {
     function canCall(bytes32, address, address, bytes4) external view returns (bool);
@@ -18,7 +18,7 @@ interface RegistryLike {
     function buffers(bytes32 ilk) external view returns (address buffer);
 }
 
-contract SparkConduit is UpgradeableProxied, ISparkConduit {
+contract SparkLendConduit is UpgradeableProxied, ISparkLendConduit {
 
     using SafeERC20  for address;
 
@@ -42,14 +42,14 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit {
     /**********************************************************************************************/
 
     modifier auth() {
-        require(wards[msg.sender] == 1, "SparkConduit/not-authorized");
+        require(wards[msg.sender] == 1, "SparkLendConduit/not-authorized");
         _;
     }
 
     modifier ilkAuth(bytes32 ilk) {
         require(
             RolesLike(roles).canCall(ilk, msg.sender, address(this), msg.sig),
-            "SparkConduit/ilk-not-authorized"
+            "SparkLendConduit/ilk-not-authorized"
         );
         _;
     }
@@ -90,11 +90,11 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit {
     /**********************************************************************************************/
 
     function deposit(bytes32 ilk, address asset, uint256 amount) external override ilkAuth(ilk) {
-        require(enabled[asset], "SparkConduit/asset-disabled");
+        require(enabled[asset], "SparkLendConduit/asset-disabled");
 
         address source = RegistryLike(registry).buffers(ilk);
 
-        require(source != address(0), "SparkConduit/no-buffer-registered");
+        require(source != address(0), "SparkLendConduit/no-buffer-registered");
 
         // Convert asset amount to shares
         uint256 newShares = _convertToShares(asset, amount);
@@ -125,7 +125,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit {
 
         address destination = RegistryLike(registry).buffers(ilk);
 
-        require(destination != address(0), "SparkConduit/no-buffer-registered");
+        require(destination != address(0), "SparkLendConduit/no-buffer-registered");
 
         IPool(pool).withdraw(asset, amount, destination);
 
@@ -137,7 +137,7 @@ contract SparkConduit is UpgradeableProxied, ISparkConduit {
     /**********************************************************************************************/
 
     function maxDeposit(bytes32, address asset) public view override returns (uint256 maxDeposit_) {
-        // Note: Purposefully ignoring any potential supply cap limits on Spark.
+        // Note: Purposefully ignoring any potential supply cap limits on SparkLend.
         //       This is because we assume the supply cap on this asset to be turned off.
         return enabled[asset] ? type(uint256).max : 0;
     }

@@ -4,11 +4,11 @@ pragma solidity >=0.8.0;
 import { IAllocatorConduit } from 'dss-allocator/IAllocatorConduit.sol';
 
 /**
- * @title  ISparkConduit
+ * @title  ISparkLendConduit
  * @notice This interface extends the IAllocatorConduit interfaces and manages asset
  *         and fund operations
  */
-interface ISparkConduit is IAllocatorConduit {
+interface ISparkLendConduit is IAllocatorConduit {
 
     /**********************************************************************************************/
     /*** Events                                                                                 ***/
@@ -39,7 +39,7 @@ interface ISparkConduit is IAllocatorConduit {
     /**********************************************************************************************/
 
     /**
-     *  @notice Returns the pool associated with the spark conduit.
+     *  @notice Returns the pool associated with the SparkLend instance.
      *  @return The address of the pool.
      */
     function pool() external view returns (address);
@@ -106,7 +106,7 @@ interface ISparkConduit is IAllocatorConduit {
     /**********************************************************************************************/
 
     /**
-     *  @notice Returns the amount of available liquidity in the Spark pool for a given asset.
+     *  @notice Returns the amount of available liquidity in the SparkLend pool for a given asset.
      *  @return The balance of tokens in the asset's reserve's aToken address.
      */
     function getAvailableLiquidity(address asset) external view returns (uint256);

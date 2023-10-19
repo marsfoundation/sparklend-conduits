@@ -13,7 +13,7 @@ import { IERC20 } from "erc20-helpers/interfaces/IERC20.sol";
 
 import { UpgradeableProxy } from "upgradeable-proxy/UpgradeableProxy.sol";
 
-import { SparkConduit } from 'src/SparkConduit.sol';
+import { SparkLendConduit } from 'src/SparkLendConduit.sol';
 
 contract ConduitIntegrationTestBase is DssTest {
 
@@ -42,7 +42,7 @@ contract ConduitIntegrationTestBase is DssTest {
     IAToken aToken = IAToken(ADAI);
     IPool   pool   = IPool(POOL);
 
-    SparkConduit conduit;
+    SparkLendConduit conduit;
 
     function setUp() public virtual {
         vm.createSelectFork(getChain('mainnet').rpcUrl, 18_090_400);
@@ -54,11 +54,11 @@ contract ConduitIntegrationTestBase is DssTest {
         INDEX              = 1.006574692939479711169088718e27;
 
         UpgradeableProxy proxy = new UpgradeableProxy();
-        SparkConduit     impl  = new SparkConduit(POOL);
+        SparkLendConduit impl  = new SparkLendConduit(POOL);
 
         proxy.setImplementation(address(impl));
 
-        conduit = SparkConduit(address(proxy));
+        conduit = SparkLendConduit(address(proxy));
 
         registry = new AllocatorRegistry();
         roles    = new AllocatorRoles();
@@ -197,7 +197,7 @@ contract ConduitDepositIntegrationTests is ConduitIntegrationTestBase {
         registry.file(ILK1, "buffer", address(0));
 
         vm.prank(operator1);
-        vm.expectRevert("SparkConduit/no-buffer-registered");
+        vm.expectRevert("SparkLendConduit/no-buffer-registered");
         conduit.deposit(ILK1, DAI, 100 ether);
 
         registry.file(ILK1, "buffer", buffer1);
@@ -220,7 +220,7 @@ contract ConduitDepositIntegrationTests is ConduitIntegrationTestBase {
 
         // Same error, but because buffer was never initialized to begin with
         vm.prank(operator3);
-        vm.expectRevert("SparkConduit/no-buffer-registered");
+        vm.expectRevert("SparkLendConduit/no-buffer-registered");
         conduit.deposit(ILK3, DAI, 100 ether);
 
         registry.file(ILK3, "buffer", buffer3);
@@ -402,7 +402,7 @@ contract ConduitWithdrawIntegrationTests is ConduitIntegrationTestBase {
         registry.file(ILK1, "buffer", address(0));
 
         vm.prank(operator1);
-        vm.expectRevert("SparkConduit/no-buffer-registered");
+        vm.expectRevert("SparkLendConduit/no-buffer-registered");
         conduit.withdraw(ILK1, DAI, 100 ether);
 
         registry.file(ILK1, "buffer", buffer1);

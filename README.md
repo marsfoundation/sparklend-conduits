@@ -1,4 +1,4 @@
-# Spark Conduits ⚡
+# SparkLend Conduits ⚡
 
 ![Foundry CI](https://github.com/marsfoundation/spark-conduits/actions/workflows/ci.yml/badge.svg)
 [![Foundry][foundry-badge]][foundry]
@@ -9,11 +9,11 @@
 
 ## Overview
 
-The Spark Conduit is a conduit contract designed to be used within the Maker Allocation System. It implements the IAllocatorConduit interface, so it will be able to work within the constraints on the Allocation System design. There is one contract in this repo:
+The SparkLend Conduit is a conduit contract designed to be used within the Maker Allocation System. It implements the IAllocatorConduit interface, so it will be able to work within the constraints on the Allocation System design. There is one contract in this repo:
 
-`SparkConduit`: Facilitates the movement of funds between the Maker Allocation System and the SparkLend protocol.
+`SparkLendConduit`: Facilitates the movement of funds between the Maker Allocation System and the SparkLend instance.
 
-In later iterations of this code's development, it is expected for other Spark Conduits to be developed to support multichain deployments.
+In later iterations of this code's development, it is expected for other SparkLend Conduits to be developed to support multichain deployments.
 
 ## Roles/Permissions
 
@@ -62,11 +62,11 @@ $$ totalShares[asset] \le aToken.scaledBalanceOf(conduit) $$
 
 $$ getTotalDeposits(asset) \le aToken.balanceOf(conduit) $$
 
-**NOTE**: The last two invariants are not strict equalities because of A) the potential for a permissionless transfer of the aToken into the conduit and/or B) the rounding behaviour difference (round on Spark vs round-down on Spark Conduit).
+**NOTE**: The last two invariants are not strict equalities because of A) the potential for a permissionless transfer of the aToken into the conduit and/or B) the rounding behaviour difference (round on SparkLend vs round-down on SparkLend Conduit).
 
 ## Upgradeability
 
-Since the Spark Conduit will likely require maintenance as its desired usage evolves, it will be an upgradeable contract, using [`upgradeable-proxy`](https://github.com/marsfoundation/upgradeable-proxy) for upgradeable logic. This is a non-transparent proxy contract that gives upgrade rights to the PauseProxy.
+Since the SparkLend Conduit will likely require maintenance as its desired usage evolves, it will be an upgradeable contract, using [`upgradeable-proxy`](https://github.com/marsfoundation/upgradeable-proxy) for upgradeable logic. This is a non-transparent proxy contract that gives upgrade rights to the PauseProxy.
 
 ## Technical Assumptions
 
